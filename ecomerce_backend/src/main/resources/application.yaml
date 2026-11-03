@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: ecomerce_backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DATA_SOURCE_USERNAME}
+    password: ${DATA_SOURCE_PASSWORD}
+    url: ${DATA_SOURCE_URL}
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  config:
+    import:
+      optional:file:.env[.properties]
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: ${GOOGLE_REDIRECT_URI}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://www.googleapis.com/auth/user.birthday.read
+server:
+  port: 8080
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
+app:
+  upload-dir: ${UPLOAD_DIR:uploads}
+  low-stock-threshold: 5
+  seed-sample-data: ${SEED_SAMPLE_DATA:true}
+frontend:
+  url: ${FRONTEND_URL}
+cloudinary:
+  api_key: ${CLOUDINARY_API_KEY}
+  api_secret: ${CLOUDINARY_API_SECRET}
+  cloud_name: ${CLOUDINARY_CLOUD_NAME}
+payos:
+  client_id: ${PAYOS_CLIENT_ID}
+  api_key: ${PAYOS_API_KEY}
+  checksum_key: ${PAYOS_CHECKSUM_KEY}

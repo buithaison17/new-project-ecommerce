@@ -1,0 +1,67 @@
+services:
+    mysql:
+        image: mysql:8.0
+        container_name: mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DATA_SOURCE_PASSWORD}
+            MYSQL_DATABASE: ecommerce
+        ports:
+            - "3306:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql
+        networks:
+            - ecommerce-network
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 60s
+
+    backend:
+        image: sonbui17/ecomerce_backend
+        container_name: backend
+        restart: unless-stopped
+        ports:
+            - "8080:8080"
+        environment:
+            DATA_SOURCE_URL: ${DATA_SOURCE_URL}
+            DATA_SOURCE_USERNAME: ${DATA_SOURCE_USERNAME}
+            DATA_SOURCE_PASSWORD: ${DATA_SOURCE_PASSWORD}
+            JWT_SECRET: ${JWT_SECRET}
+            JWT_EXPIRATION: ${JWT_EXPIRATION}
+            JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+            FRONTEND_URL: ${FRONTEND_URL}
+            CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+            CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+            CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+        depends_on:
+            mysql:
+                condition: service_healthy
+        networks:
+            - ecommerce-network
+
+    frontend:
+        image: sonbui17/ecomerce_frontend
+        container_name: frontend
+        restart: unless-stopped
+        ports:
+            - "80:80"
+        depends_on:
+            - backend
+        networks:
+            - ecommerce-network
+        environment:
+            VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+
+volumes:
+    mysql_data:
+
+networks:
+    ecommerce-network:
+        driver: bridge
