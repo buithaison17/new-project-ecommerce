@@ -49,3 +49,13 @@ export interface DashboardSummaryResponse {
     lowStockThreshold: number;
 }
 
+export interface AdminUserResponse {
+    id: number;
+    username: string;
+    email: string;
+    role: string;
+    isEnabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
