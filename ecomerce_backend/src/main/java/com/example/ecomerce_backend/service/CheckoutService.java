@@ -8,12 +8,12 @@ import com.example.ecomerce_backend.model.dto.request.CreateOrderRequest;
 import com.example.ecomerce_backend.model.dto.request.CancelOrderRequest;
 import com.example.ecomerce_backend.model.dto.response.CreateCheckoutResponse;
 import com.example.ecomerce_backend.model.dto.response.OrderResponse;
+import com.example.ecomerce_backend.model.entity.Order;
 import com.example.ecomerce_backend.model.entity.Transaction;
 import com.example.ecomerce_backend.model.entity.User;
 import com.example.ecomerce_backend.repository.OrderRepository;
 import com.example.ecomerce_backend.repository.TransactionRepository;
 import com.example.ecomerce_backend.security.principal.UserPrincipal;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -67,9 +67,10 @@ public class CheckoutService {
         }
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userPrincipal.getUser();
+        OrderResponse orderResponse = null;
         try {
             // Tạo đơn hàng
-            OrderResponse orderResponse = orderService.createOrder(request);
+            orderResponse = orderService.createOrder(request);
             // Tạo mã thanh toán
             Long orderCode = generateOrderCode();
             CreatePaymentLinkRequest createPaymentLinkRequest = CreatePaymentLinkRequest.builder()
@@ -98,8 +99,20 @@ public class CheckoutService {
                     createPaymentLinkResponse.getStatus(),
                     createPaymentLinkResponse.getQrCode()
             );
-        } catch (RuntimeException e) {
-            throw new CheckoutException("Đã xảy ra lỗi khi thanh toán");
+        } catch (Exception e) {
+            // Rollback: Hủy đơn hàng và hoàn trả tồn kho nếu tạo payment link thất bại
+            if (orderResponse != null) {
+                try {
+                    Order order = orderRepository.findById(orderResponse.id()).orElse(null);
+                    if (order != null) {
+                        orderService.cancelOrder(order);
+                    }
+                } catch (Exception rollbackException) {
+                    log.error("Lỗi khi rollback đơn hàng sau khi payment thất bại: {}", rollbackException.getMessage());
+                }
+            }
+            log.error("Lỗi khi tạo payment link: {}", e.getMessage(), e);
+            throw new CheckoutException("Đã xảy ra lỗi khi thanh toán: " + e.getMessage());
         }
     }
 
@@ -114,10 +127,18 @@ public class CheckoutService {
             throw new CheckoutException("Bạn chỉ có thể hủy khi chưa thanh toán");
         }
         if (transaction.getStatus() == PaymentLinkStatus.CANCELLED) {
-            throw new CheckoutException("Giao dịch đã huyt trước đó");
+            throw new CheckoutException("Giao dịch đã hủy trước đó");
+        }
+        // Hủy payment link trước để tránh người dùng thanh toán sau khi đơn đã hủy
+        try {
+            payOS.paymentRequests().cancel(transaction.getPaymentLinkId());
+            transaction.setStatus(PaymentLinkStatus.CANCELLED);
+            transactionRepository.save(transaction);
+        } catch (Exception e) {
+            log.error("Lỗi khi hủy payment link: {}", e.getMessage(), e);
+            // Vẫn tiếp tục hủy đơn hàng ngay cả khi payment link hủy thất bại
         }
         orderService.cancelOrder(transaction.getOrder());
-        payOS.paymentRequests().cancel(transaction.getPaymentLinkId());
     }
 
     @Transactional
@@ -126,31 +147,36 @@ public class CheckoutService {
         try {
             webhookData = payOS.webhooks().verify(object);
         } catch (Exception e) {
+            log.error("Lỗi khi verify webhook: {}", e.getMessage(), e);
             throw new CheckoutException("Đã xảy ra lỗi khi thanh toán vui lòng thử lại");
         }
         Transaction transaction = transactionRepository.findByOrderCode(webhookData.getOrderCode())
                 .orElseThrow(() -> new NotFoundException("Đã xảy ra lỗi khi thanh toán"));
-//         Lưu thông tin để hoàn tiền khi cần
+        // Lưu thông tin để hoàn tiền khi cần
         if (!webhookData.getReference().isBlank()) {
-            String reference = webhookData.getReference();
-            transaction.setReference(reference);
+            transaction.setReference(webhookData.getReference());
         }
         if (!webhookData.getCounterAccountNumber().isBlank()) {
-            String accountNumber = webhookData.getCounterAccountNumber();
-            transaction.setAccountNumber(accountNumber);
+            transaction.setAccountNumber(webhookData.getCounterAccountNumber());
         }
         // Kiểm tra mã trạng thái
         if (!webhookData.getCode().equals("00")) {
+            log.error("Giao dịch không thành công với mã code {} cho orderCode {}", webhookData.getCode(), webhookData.getOrderCode());
             throw new CheckoutException("Giao dịch không thành công với mã code " + webhookData.getCode());
         }
-        // Kiểm tra xem đơn hàng đã được xử lý chức tránh trùng lặp
-        if (transaction.getStatus() == PaymentLinkStatus.PAID) {
-            // Cập nhật trạng thái giao dịch và lưu vào database
+        // Kiểm tra xem đơn hàng đã được xử lý để tránh trùng lặp
+        if (transaction.getStatus() != PaymentLinkStatus.PAID) {
             transaction.setStatus(PaymentLinkStatus.PAID);
             transaction.getOrder().setPaymentStatus(PaymentStatus.COMPLETED);
+            transactionRepository.save(transaction);
+            orderRepository.save(transaction.getOrder());
+            log.info("Thanh toán thành công cho orderCode {}, orderId {}", webhookData.getOrderCode(), transaction.getOrder().getId());
+        } else {
+            log.info("Giao dịch orderCode {} đã được xử lý trước đó", webhookData.getOrderCode());
         }
     }
 
+    @Transactional
     public void refund(Transaction transaction, CancelOrderRequest request) {
         if ((request.bin() == null || request.bin().isBlank()) && (request.accountNumber() == null || request.accountNumber().isBlank())) {
             throw new BadRequestException("Không thể hoàn tiền do thiếu thông tin");
@@ -164,8 +190,10 @@ public class CheckoutService {
                     .toAccountNumber(request.accountNumber())
                     .build();
             payOS.payouts().create(payoutRequests);
+            log.info("Hoàn tiền thành công cho orderId {}, amount {}", transaction.getOrder().getId(), transaction.getOrder().getFinalAmount());
         } catch (Exception e) {
-            throw new CheckoutException("Đã xảy ra lỗi khi hoàn tiền vui lòng thử lại");
+            log.error("Lỗi khi hoàn tiền cho orderId {}: {}", transaction.getOrder().getId(), e.getMessage(), e);
+            throw new CheckoutException("Đã xảy ra lỗi khi hoàn tiền vui lòng thử lại: " + e.getMessage());
         }
     }
 }
