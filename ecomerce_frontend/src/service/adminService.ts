@@ -246,20 +246,4 @@ export const adminService = {
         return response.data.data;
     },
 
-    async getUsers(keyword?: string, role?: string, page = 1, size = 10): Promise<PageResponse<AdminUserResponse>> {
-        const response = await api.get<ApiDataResponse<PageResponse<AdminUserResponse>>>("/admin/users", {
-            params: { keyword, role, page, size },
-        });
-        return response.data.data;
-    },
-
-    async blockUser(userId: number) {
-        const response = await api.patch<ApiDataResponse<void>>(`/admin/users/${userId}/block`);
-        return response.data.data;
-    },
-
-    async unblockUser(userId: number) {
-        const response = await api.patch<ApiDataResponse<void>>(`/admin/users/${userId}/unblock`);
-        return response.data.data;
-    },
 };
