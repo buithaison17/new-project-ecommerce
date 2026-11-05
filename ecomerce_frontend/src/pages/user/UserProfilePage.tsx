@@ -100,6 +100,13 @@ export default function UserProfilePage() {
     const [ordersTotalElements, setOrdersTotalElements] = useState(0);
     const [viewingOrder, setViewingOrder] = useState<OrderResponse | null>(null);
 
+    // State cho tab Sổ địa chỉ
+    const [deliveries, setDeliveries] = useState<UserDeliveryResponse[]>([]);
+    const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+    const [newAddress, setNewAddress] = useState("");
+    const [newPhone, setNewPhone] = useState("");
+    const [addingDelivery, setAddingDelivery] = useState(false);
+
     const {
         register: registerProfile,
         handleSubmit: handleSubmitProfile,
@@ -109,11 +116,11 @@ export default function UserProfilePage() {
         resolver: zodResolver(profileSchema),
         values: profile
             ? {
-                  fullName: profile.fullName || "",
-                  email: profile.email || "",
-                  dateOfBirth: normalizeDate(profile.dateOfBirth),
-                  gender: (profile.gender as "MALE" | "FEMALE") || "MALE",
-              }
+                fullName: profile.fullName || "",
+                email: profile.email || "",
+                dateOfBirth: normalizeDate(profile.dateOfBirth),
+                gender: (profile.gender as "MALE" | "FEMALE") || "MALE",
+            }
             : undefined,
     });
 
@@ -205,6 +212,18 @@ export default function UserProfilePage() {
         }
     };
 
+    const loadDeliveries = async () => {
+        try {
+            setDeliveriesLoading(true);
+            const data = await orderService.getDeliveries(1, 20);
+            setDeliveries(data || []);
+        } catch (err) {
+            console.error("Lỗi tải sổ địa chỉ:", err);
+        } finally {
+            setDeliveriesLoading(false);
+        }
+    };
+
     const handleCancelOrder = async (orderId: number) => {
         try {
             await orderService.cancelOrder(orderId);
@@ -219,6 +238,48 @@ export default function UserProfilePage() {
         } catch (err: any) {
             const errMsg = err?.response?.data?.message || err?.message || "Không thể hủy đơn hàng";
             message.error(errMsg);
+        }
+    };
+
+    const handleAddDelivery = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const cleanAddress = newAddress.trim();
+        const cleanPhone = newPhone.trim();
+
+        if (!/^\d{10}$/.test(cleanPhone)) {
+            message.error("Số điện thoại phải có đúng 10 chữ số!");
+            return;
+        }
+
+        if (cleanAddress.length < 5) {
+            message.error("Vui lòng nhập địa chỉ cụ thể và hợp lệ!");
+            return;
+        }
+
+        try {
+            setAddingDelivery(true);
+            await orderService.createDelivery({ address: cleanAddress, phoneNumber: cleanPhone });
+            message.success("Thêm địa chỉ nhận hàng thành công!");
+            setNewAddress("");
+            setNewPhone("");
+            await loadDeliveries();
+        } catch (err: any) {
+            message.error(err?.response?.data?.message || "Lỗi khi lưu địa chỉ mới");
+        } finally {
+            setAddingDelivery(false);
+        }
+    };
+
+    const handleDeleteDelivery = async (delivery: UserDeliveryResponse) => {
+        try {
+            await orderService.deleteDeliveryAddress({
+                address: delivery.address,
+                phoneNumber: delivery.phoneNumber,
+            });
+            message.success("Đã xóa địa chỉ nhận hàng thành công!");
+            await loadDeliveries();
+        } catch (err: any) {
+            message.error("Không thể xóa địa chỉ nhận hàng này");
         }
     };
 
@@ -266,12 +327,12 @@ export default function UserProfilePage() {
             useAuthStore.setState((prev) => ({
                 user: prev.user
                     ? {
-                          ...prev.user,
-                          fullName: updated.fullName,
-                          avatarUrl: updated.avatarUrl,
-                          dateOfBirth: updated.dateOfBirth,
-                          email: updated.email,
-                      }
+                        ...prev.user,
+                        fullName: updated.fullName,
+                        avatarUrl: updated.avatarUrl,
+                        dateOfBirth: updated.dateOfBirth,
+                        email: updated.email,
+                    }
                     : null,
             }));
             await loadCurrentUser();
@@ -924,11 +985,11 @@ function OrderStatusBadge({ status }: { status: OrderStatus }) {
 }
 
 function FormField({
-    label,
-    error,
-    icon,
-    children,
-}: {
+                       label,
+                       error,
+                       icon,
+                       children,
+                   }: {
     label: string;
     error?: string;
     icon: React.ReactNode;
