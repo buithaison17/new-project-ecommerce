@@ -256,32 +256,6 @@ export default function UserProfilePage() {
             return;
         }
 
-        try {
-            setAddingDelivery(true);
-            await orderService.createDelivery({ address: cleanAddress, phoneNumber: cleanPhone });
-            message.success("Thêm địa chỉ nhận hàng thành công!");
-            setNewAddress("");
-            setNewPhone("");
-            await loadDeliveries();
-        } catch (err: any) {
-            message.error(err?.response?.data?.message || "Lỗi khi lưu địa chỉ mới");
-        } finally {
-            setAddingDelivery(false);
-        }
-    };
-
-    const handleDeleteDelivery = async (delivery: UserDeliveryResponse) => {
-        try {
-            await orderService.deleteDeliveryAddress({
-                address: delivery.address,
-                phoneNumber: delivery.phoneNumber,
-            });
-            message.success("Đã xóa địa chỉ nhận hàng thành công!");
-            await loadDeliveries();
-        } catch (err: any) {
-            message.error("Không thể xóa địa chỉ nhận hàng này");
-        }
-    };
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

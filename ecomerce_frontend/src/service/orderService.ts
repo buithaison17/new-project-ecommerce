@@ -107,7 +107,7 @@ export const orderService = {
         return [];
     },
 
-    // Lấy danh sách địa chỉ nhận hàng của người dùng (tự động loại bỏ các địa chỉ đã xóa)
+    // Kết nối với backend API lấy danh sách địa chỉ nhận hàng của người dùng
     async getDeliveries(currentPage = 1, pageSize = 20) {
         const response = await api.get<ApiDataResponse<UserDeliveryResponse[]>>("/users/deliveries", {
             params: { currentPage, pageSize },
@@ -134,7 +134,7 @@ export const orderService = {
         return uniqueDeliveries;
     },
 
-    // Tạo địa chỉ nhận hàng mới (tự động kiểm tra để không tạo trùng lặp)
+    // Kết nối với backend API tạo địa chỉ nhận hàng mới
     async createDelivery(data: UserDeliveryRequest) {
         const cleanAddress = data.address.trim();
         const cleanPhone = data.phoneNumber.trim();
@@ -169,18 +169,18 @@ export const orderService = {
         return response.data.data;
     },
 
-    // Cập nhật địa chỉ nhận hàng
+    // Kết nối với backend API cập nhật địa chỉ nhận hàng
     async updateDelivery(id: number, data: UserDeliveryRequest) {
         const response = await api.patch<ApiDataResponse<UserDeliveryResponse>>(`/users/deliveries/${id}`, data);
         return response.data.data;
     },
 
-    // Xóa địa chỉ nhận hàng theo ID
+    // Kết nối với backend API xóa địa chỉ nhận hàng theo ID
     async deleteDelivery(id: number) {
         await api.patch(`/users/deliveries/${id}/delete`);
     },
 
-    // Xóa địa chỉ nhận hàng thông minh: gọi API backend và đồng bộ trạng thái Frontend
+    // Kết nối với backend API xóa địa chỉ nhận hàng thông minh: gọi API backend và đồng bộ trạng thái Frontend
     async deleteDeliveryAddress(params: { id?: number; address: string; phoneNumber: string }) {
         const { id, address, phoneNumber } = params;
 
@@ -229,13 +229,13 @@ export const orderService = {
         }
     },
 
-    // Tạo đơn hàng mới
+    // Kết nối với backend API tạo đơn hàng mới
     async createOrder(request: CreateOrderRequest) {
         const response = await api.post<ApiDataResponse<OrderResponse>>("/orders", request);
         return response.data.data;
     },
 
-    // Hủy đơn hàng của người dùng: gọi API BE và đồng bộ trạng thái toàn hệ thống
+    // Kết nối với backend API hủy đơn hàng của người dùng: gọi API BE và đồng bộ trạng thái toàn hệ thống
     async cancelOrder(orderId: number): Promise<OrderResponse> {
         let cancelledOrder: OrderResponse | null = null;
         let lastError: any = null;
@@ -267,7 +267,7 @@ export const orderService = {
         return syncOrderStatus(cancelledOrder || ({ id: orderId, orderStatus: "CANCELLED" } as any));
     },
 
-    // Lấy danh sách đơn hàng của người dùng hiện tại (đồng bộ trạng thái với Admin)
+    // Kết nối với backend API lấy danh sách đơn hàng của người dùng hiện tại (đồng bộ trạng thái với Admin)
     async getMyOrders(currentPage = 1, pageSize = 20, orderStatus?: OrderStatus): Promise<PageResponse<OrderResponse>> {
         let pageData: PageResponse<OrderResponse> = {
             content: [],
@@ -446,7 +446,7 @@ export const orderService = {
         }];
     },
 
-    // Lấy chi tiết sản phẩm của đơn hàng (Backend API -> Cache Frontend -> Tự động suy luận từ danh mục)
+    // Kết nối với backend API lấy chi tiết sản phẩm của đơn hàng (Backend API -> Cache Frontend -> Tự động suy luận từ danh mục)
     async getOrderDetail(
         id: number,
         orderHint?: { totalAmount?: number; finalAmount?: number; shippingAmount?: number }
@@ -525,7 +525,7 @@ export const orderService = {
         return [];
     },
 
-    // Luồng hoàn tất đặt hàng tích hợp: tạo địa chỉ, liên kết deliveryId và gửi đơn hàng lên BE
+    // Kết nối với backend API luồng hoàn tất đặt hàng tích hợp: tạo địa chỉ, liên kết deliveryId và gửi đơn hàng lên BE
     async placeOrder(params: PlaceOrderParams): Promise<OrderResponse> {
         const { items, address, phoneNumber, paymentMethod, note, deliveryId } = params;
 

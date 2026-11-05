@@ -88,6 +88,7 @@ export function normalizeDate(date: any): string {
 const PROFILE_CACHE_KEY = "currentUserProfile";
 
 export const userService = {
+    // Kết nối với backend API lấy thông tin profile người dùng
     async getCurrentUser(): Promise<UserProfile> {
         let rawUser: any = null;
         try {
@@ -166,6 +167,7 @@ export const userService = {
         return profile;
     },
 
+    // Kết nối với backend API cập nhật thông tin profile
     async updateProfile(data: FormData): Promise<UserProfile> {
         const response = await api.patch<{
             success: boolean;
@@ -208,10 +210,12 @@ export const userService = {
         return updatedProfile;
     },
 
+    // Kết nối với backend API đổi mật khẩu
     async changePassword(data: ChangePasswordRequest) {
         return (await api.patch("/users/change-password", data)).data;
     },
 
+    // Kết nối với backend API làm mới token
     async refreshToken() {
         const response = await api.post("/auth/refresh");
         return response.data;

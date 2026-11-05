@@ -34,6 +34,7 @@ export const useAuthStore = create<State>((set) => ({
         try {
             set({ loading: true });
 
+            // Kết nối với backend API đăng nhập
             const response = await loginService.login(data);
 
             // Giả sử loginService trả về dữ liệu có dạng:
@@ -136,6 +137,7 @@ export const useAuthStore = create<State>((set) => ({
         }
 
         try {
+            // Kết nối với backend API lấy thông tin người dùng hiện tại
             const response = await loginService.getCurrentUser();
 
             // Nếu service trả về AxiosResponse, sử dụng response.data.
@@ -176,6 +178,7 @@ export const useAuthStore = create<State>((set) => ({
     refresh: async () => {
         try {
             set({ loading: true });
+            // Kết nối với backend API làm mới token
             const response = await userService.refreshToken();
             set({ accessToken: response.accessToken });
         } catch (error) {
@@ -187,6 +190,7 @@ export const useAuthStore = create<State>((set) => ({
 
     logout: async () => {
         try {
+            // Kết nối với backend API đăng xuất
             await loginService.logout();
         } finally {
             localStorage.removeItem("accessToken");
