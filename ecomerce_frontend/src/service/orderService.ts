@@ -15,6 +15,8 @@ import { useCartStore } from "../store/cartStore";
 import { catalogService } from "./catalogService";
 import type { ProductSummary } from "../types/catalog";
 import { saveOrderStatusOverride, syncOrderStatus } from "./orderStatusSync";
+import { paymentService } from "./paymentService";
+import type { CreateCheckoutResponse } from "../types/order";
 import { formatProductImageUrl } from "../lib/image";
 
 export const ORDER_ITEMS_CACHE_KEY = "order_items_cache";
@@ -834,6 +836,147 @@ export const orderService = {
                     continue;
                 }
                 // Nếu là lỗi khác (ví dụ: tồn kho không đủ, sản phẩm không tồn tại, v.v.), ném lỗi ngay
+                throw err;
+            }
+        }
+
+        throw (
+            lastError ||
+            new Error(
+                "Không thể liên kết địa chỉ giao hàng với đơn hàng. Vui lòng thử lại.",
+            )
+        );
+    },
+
+    // === PayOS Payment Flow ===
+    // Luồng đặt hàng riêng cho PayOS: tạo đơn hàng + tạo link thanh toán PayOS
+    // KHÔNG ảnh hưởng tới method placeOrder hiện tại (COD / CREDIT_CARD)
+    async placeOrderWithPayOS(
+        params: PlaceOrderParams,
+    ): Promise<{ order: OrderResponse; checkout: CreateCheckoutResponse }> {
+        const { items, address, phoneNumber, note, deliveryId } = params;
+
+        if (!items || items.length === 0) {
+            throw new Error("Không có sản phẩm nào trong giỏ hàng để đặt.");
+        }
+
+        const cleanAddress = address.trim();
+        const cleanPhone = phoneNumber.trim();
+        const addressKey = `${cleanAddress.toLowerCase()}_${cleanPhone}`;
+
+        // 1. Đảm bảo địa chỉ nhận hàng tồn tại trên Backend
+        try {
+            await orderService.createDelivery({
+                address: cleanAddress,
+                phoneNumber: cleanPhone,
+            });
+        } catch (deliveryError: any) {
+            console.warn(
+                "Lưu địa chỉ nhận hàng (PayOS):",
+                deliveryError?.response?.data?.message ||
+                    deliveryError?.message,
+            );
+        }
+
+        // 2. Tìm deliveryId phù hợp (logic tương tự placeOrder)
+        const deliveryMap: Record<string, number> = JSON.parse(
+            localStorage.getItem("delivery_id_map") || "{}",
+        );
+        const mappedId = deliveryMap[addressKey];
+        const cachedIdStr = localStorage.getItem("last_delivery_id");
+        const cachedId = cachedIdStr ? parseInt(cachedIdStr, 10) : null;
+
+        const candidateIds: number[] = [];
+        if (deliveryId && deliveryId > 0) candidateIds.push(deliveryId);
+        if (mappedId && mappedId > 0 && !candidateIds.includes(mappedId))
+            candidateIds.push(mappedId);
+
+        const knownIds = Object.values(deliveryMap).filter(
+            (id) => typeof id === "number" && id > 0,
+        );
+        if (cachedId && cachedId > 0 && !knownIds.includes(cachedId)) {
+            knownIds.push(cachedId);
+        }
+        const maxKnownId = knownIds.length > 0 ? Math.max(...knownIds) : 10;
+        const topRange = Math.max(maxKnownId + 30, 80);
+        for (let i = topRange; i >= 1; i--) {
+            if (!candidateIds.includes(i)) {
+                candidateIds.push(i);
+            }
+        }
+
+        let lastError: any = null;
+
+        for (const candId of candidateIds) {
+            try {
+                // Gọi paymentService để tạo link thanh toán PayOS (thay vì createOrder)
+                const checkout = await paymentService.createPaymentLink({
+                    items: items.map((i) => ({
+                        productId: i.productId,
+                        quantity: i.quantity,
+                    })),
+                    deliveryId: candId,
+                    paymentMethod: "PAYOS",
+                    note: note || "",
+                });
+
+                // Lưu deliveryId thành công
+                deliveryMap[addressKey] = candId;
+                localStorage.setItem(
+                    "delivery_id_map",
+                    JSON.stringify(deliveryMap),
+                );
+                localStorage.setItem("last_delivery_id", String(candId));
+
+                // Lưu cache sản phẩm
+                const orderId = checkout.orderCode;
+                orderService.saveOrderItemsToCache(
+                    orderId,
+                    items.map((i) => ({
+                        productId: i.productId,
+                        name: i.name || `Sản phẩm #${i.productId}`,
+                        price: i.price || 0,
+                        thumbnailUrl: i.thumbnailUrl || null,
+                        quantity: i.quantity,
+                    })),
+                );
+
+                // Làm sạch giỏ hàng
+                useCartStore.getState().clearCart();
+                try {
+                    await cartService.clear();
+                } catch {
+                    // ignore
+                }
+
+                // Tạo OrderResponse giả từ checkout data để UI hiển thị
+                const order: OrderResponse = {
+                    id: orderId,
+                    totalAmount: checkout.amount,
+                    shippingAmount: 20000,
+                    finalAmount: checkout.amount,
+                    delivery: {
+                        address: cleanAddress,
+                        phoneNumber: cleanPhone,
+                    },
+                    orderStatus: "PENDING",
+                    paymentMethod: "PAYOS",
+                    paymentStatus: "PENDING",
+                    note: note || undefined,
+                };
+
+                return { order, checkout };
+            } catch (err: any) {
+                lastError = err;
+                const errMsg =
+                    err?.response?.data?.message || err?.message || "";
+                if (
+                    errMsg.includes("Địa chỉ nhận hàng không tồn tại") ||
+                    errMsg.includes("Resource not found") ||
+                    err?.response?.status === 404
+                ) {
+                    continue;
+                }
                 throw err;
             }
         }
