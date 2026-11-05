@@ -100,13 +100,6 @@ export default function UserProfilePage() {
     const [ordersTotalElements, setOrdersTotalElements] = useState(0);
     const [viewingOrder, setViewingOrder] = useState<OrderResponse | null>(null);
 
-    // State cho tab Sổ địa chỉ
-    const [deliveries, setDeliveries] = useState<UserDeliveryResponse[]>([]);
-    const [deliveriesLoading, setDeliveriesLoading] = useState(false);
-    const [newAddress, setNewAddress] = useState("");
-    const [newPhone, setNewPhone] = useState("");
-    const [addingDelivery, setAddingDelivery] = useState(false);
-
     const {
         register: registerProfile,
         handleSubmit: handleSubmitProfile,
@@ -212,18 +205,6 @@ export default function UserProfilePage() {
         }
     };
 
-    const loadDeliveries = async () => {
-        try {
-            setDeliveriesLoading(true);
-            const data = await orderService.getDeliveries(1, 20);
-            setDeliveries(data || []);
-        } catch (err) {
-            console.error("Lỗi tải sổ địa chỉ:", err);
-        } finally {
-            setDeliveriesLoading(false);
-        }
-    };
-
     const handleCancelOrder = async (orderId: number) => {
         try {
             await orderService.cancelOrder(orderId);
@@ -240,22 +221,6 @@ export default function UserProfilePage() {
             message.error(errMsg);
         }
     };
-
-    const handleAddDelivery = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const cleanAddress = newAddress.trim();
-        const cleanPhone = newPhone.trim();
-
-        if (!/^\d{10}$/.test(cleanPhone)) {
-            message.error("Số điện thoại phải có đúng 10 chữ số!");
-            return;
-        }
-
-        if (cleanAddress.length < 5) {
-            message.error("Vui lòng nhập địa chỉ cụ thể và hợp lệ!");
-            return;
-        }
-
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
