@@ -30,7 +30,7 @@ import { useAuthStore } from "../../store/authStore";
 import { userService, normalizeDate, type UserProfile } from "../../service/userService";
 import { formatProductImageUrl } from "../../lib/image";
 import { orderService } from "../../service/orderService";
-import OrderDetailModal from "../../components/OrderDetailModal";
+import OrderDetailModal from "../../components/OrderDetailModal.tsx";
 import type {
     OrderItemResponse,
     OrderResponse,
