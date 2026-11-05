@@ -44,68 +44,8 @@ export function getProductThumbnail(name?: string, categoryName?: string, rawUrl
     return "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80";
 }
 
-export interface PlaceOrderItem {
-    productId: number;
-    name?: string;
-    price?: number;
-    thumbnailUrl?: string | null;
-    quantity: number;
-}
-
-export interface PlaceOrderParams {
-    items: PlaceOrderItem[];
-    address: string;
-    phoneNumber: string;
-    paymentMethod: PaymentMethod;
-    note?: string;
-    deliveryId?: number;
-}
-
 export const orderService = {
-    // Lưu thông tin chi tiết sản phẩm của đơn hàng vào cache cục bộ
-    saveOrderItemsToCache(
-        orderId: number,
-        items: {
-            productId: number;
-            name: string;
-            price: number;
-            thumbnailUrl?: string | null;
-            quantity: number;
-        }[]
-    ) {
-        try {
-            const cache = JSON.parse(localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}");
-            cache[orderId] = items;
-            localStorage.setItem(ORDER_ITEMS_CACHE_KEY, JSON.stringify(cache));
-        } catch (e) {
-            console.warn("Lỗi lưu cache sản phẩm đơn hàng:", e);
-        }
-    },
 
-    // Lấy thông tin sản phẩm đơn hàng từ cache cục bộ
-    getOrderItemsFromCache(orderId: number): OrderItemResponse[] {
-        try {
-            const cache = JSON.parse(localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}");
-            const items = cache[orderId] || cache[String(orderId)];
-            if (Array.isArray(items) && items.length > 0) {
-                return items.map((it: any, index: number) => ({
-                    id: it.productId || index + 1,
-                    product: {
-                        id: it.productId,
-                        name: it.name,
-                        price: it.price,
-                        thumbnailUrl: getProductThumbnail(it.name, undefined, it.thumbnailUrl),
-                    },
-                    quantity: it.quantity,
-                    unitPrice: it.price,
-                    totalAmount: it.price * it.quantity,
-                }));
-            }
-        } catch (e) {
-            console.warn("Lỗi đọc cache sản phẩm đơn hàng:", e);
-        }
-        return [];
-    },
 
     // Kết nối với backend API tạo đơn hàng mới
     async createOrder(request: CreateOrderRequest) {
