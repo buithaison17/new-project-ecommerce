@@ -64,7 +64,7 @@ export interface PlaceOrderParams {
 export const orderService = {
     // Lưu thông tin chi tiết sản phẩm của đơn hàng vào cache cục bộ
     saveOrderItemsToCache(
-        orderId: number,
+        orderId: number,x
         items: {
             productId: number;
             name: string;
@@ -107,7 +107,7 @@ export const orderService = {
         return [];
     },
 
-    // Kết nối với backend API lấy danh sách địa chỉ nhận hàng của người dùng
+    // Lấy danh sách địa chỉ nhận hàng của người dùng (tự động loại bỏ các địa chỉ đã xóa)
     async getDeliveries(currentPage = 1, pageSize = 20) {
         const response = await api.get<ApiDataResponse<UserDeliveryResponse[]>>("/users/deliveries", {
             params: { currentPage, pageSize },
@@ -134,7 +134,7 @@ export const orderService = {
         return uniqueDeliveries;
     },
 
-    // Kết nối với backend API tạo địa chỉ nhận hàng mới
+    // Tạo địa chỉ nhận hàng mới (tự động kiểm tra để không tạo trùng lặp)
     async createDelivery(data: UserDeliveryRequest) {
         const cleanAddress = data.address.trim();
         const cleanPhone = data.phoneNumber.trim();
@@ -169,18 +169,18 @@ export const orderService = {
         return response.data.data;
     },
 
-    // Kết nối với backend API cập nhật địa chỉ nhận hàng
+    // Cập nhật địa chỉ nhận hàng
     async updateDelivery(id: number, data: UserDeliveryRequest) {
         const response = await api.patch<ApiDataResponse<UserDeliveryResponse>>(`/users/deliveries/${id}`, data);
         return response.data.data;
     },
 
-    // Kết nối với backend API xóa địa chỉ nhận hàng theo ID
+    // Xóa địa chỉ nhận hàng theo ID
     async deleteDelivery(id: number) {
         await api.patch(`/users/deliveries/${id}/delete`);
     },
 
-    // Kết nối với backend API xóa địa chỉ nhận hàng thông minh: gọi API backend và đồng bộ trạng thái Frontend
+    // Xóa địa chỉ nhận hàng thông minh: gọi API backend và đồng bộ trạng thái Frontend
     async deleteDeliveryAddress(params: { id?: number; address: string; phoneNumber: string }) {
         const { id, address, phoneNumber } = params;
 

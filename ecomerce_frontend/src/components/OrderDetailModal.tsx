@@ -30,9 +30,9 @@ const formatPrice = (price?: number) => {
 interface OrderDetailModalProps {
     order:
         | (OrderResponse & {
-              delivery?: { address?: string; phoneNumber?: string; fullName?: string };
-              createdAt?: string;
-          })
+        delivery?: { address?: string; phoneNumber?: string; fullName?: string };
+        createdAt?: string;
+    })
         | any
         | null;
     open: boolean;
@@ -41,11 +41,11 @@ interface OrderDetailModalProps {
 }
 
 export default function OrderDetailModal({
-    order,
-    open,
-    onClose,
-    onCancelOrder,
-}: OrderDetailModalProps) {
+                                             order,
+                                             open,
+                                             onClose,
+                                             onCancelOrder,
+                                         }: OrderDetailModalProps) {
     const [items, setItems] = useState<OrderItemResponse[]>([]);
     const [loading, setLoading] = useState(false);
 
