@@ -12,11 +12,11 @@ import CheckoutSuccessPage from "../pages/user/CheckoutSuccessPage";
 import UserProfilePage from "../pages/user/UserProfilePage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
-import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
+// import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
-import AdminProductsPage from "../pages/admin/AdminProductsPage";
+// import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
-import OrdersPage from "../pages/user/OrdersPage";
+// import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -30,31 +30,36 @@ export const router = createBrowserRouter([
             { path: "/cart", element: <CartPage /> },
             {
                 path: "/checkout",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <CheckoutPage />
                     </ProtectedRoute>
+                ),
             },
             {
                 path: "/checkout/success",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <CheckoutSuccessPage />
-                    </ProtectedRoute>,
+                    </ProtectedRoute>
+                ),
             },
             {
                 path: "/orders",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
-                        <OrdersPage />
+                        {/* <OrdersPage /> */}
+                        <></>
                     </ProtectedRoute>
+                ),
             },
             {
                 path: "/profile",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <UserProfilePage />
                     </ProtectedRoute>
+                ),
             },
         ],
     },
@@ -81,8 +86,8 @@ export const router = createBrowserRouter([
             { index: true, element: <AdminDashboardPage /> },
             { path: "orders", element: <AdminOrdersPage /> },
             { path: "categories", element: <AdminCategoriesPage /> },
-            { path: "products", element: <AdminProductsPage /> },
-            { path: "inventory", element: <AdminInventoryPage /> },
+            // { path: "products", element: <AdminProductsPage /> },
+            // { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
         ],
     },
