@@ -910,13 +910,14 @@ export const orderService = {
         for (const candId of candidateIds) {
             try {
                 // Gọi paymentService để tạo link thanh toán PayOS (thay vì createOrder)
+                // Backend yêu cầu paymentMethod là "CREDIT_CARD" để tạo payment link chuyển khoản PayOS
                 const checkout = await paymentService.createPaymentLink({
                     items: items.map((i) => ({
                         productId: i.productId,
                         quantity: i.quantity,
                     })),
                     deliveryId: candId,
-                    paymentMethod: "PAYOS",
+                    paymentMethod: "CREDIT_CARD",
                     note: note || "",
                 });
 
@@ -928,10 +929,10 @@ export const orderService = {
                 );
                 localStorage.setItem("last_delivery_id", String(candId));
 
-                // Lưu cache sản phẩm
-                const orderId = checkout.orderCode;
+                // Backend trả về checkout.orderId và checkout.orderCode
+                const realOrderId = checkout.orderId || checkout.orderCode;
                 orderService.saveOrderItemsToCache(
-                    orderId,
+                    realOrderId,
                     items.map((i) => ({
                         productId: i.productId,
                         name: i.name || `Sản phẩm #${i.productId}`,
@@ -949,12 +950,19 @@ export const orderService = {
                     // ignore
                 }
 
-                // Tạo OrderResponse giả từ checkout data để UI hiển thị
+                const subtotal = items.reduce(
+                    (sum, i) => sum + (i.price || 0) * i.quantity,
+                    0,
+                );
+                const shipping = 20000;
+                const finalTotal = checkout.amount || subtotal + shipping;
+
+                // Tạo OrderResponse từ checkout data để UI hiển thị
                 const order: OrderResponse = {
-                    id: orderId,
-                    totalAmount: checkout.amount,
-                    shippingAmount: 20000,
-                    finalAmount: checkout.amount,
+                    id: realOrderId,
+                    totalAmount: subtotal,
+                    shippingAmount: shipping,
+                    finalAmount: finalTotal,
                     delivery: {
                         address: cleanAddress,
                         phoneNumber: cleanPhone,

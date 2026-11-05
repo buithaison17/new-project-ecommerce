@@ -89,13 +89,14 @@ export interface PageResponse<T> {
 // === PayOS Payment Gateway Types ===
 
 export interface CreateCheckoutResponse {
-    bin: string;
-    accountNumber: string;
-    accountName: string;
-    amount: number;
-    description: string;
+    orderId?: number;
+    bin?: string;
+    accountNumber?: string;
+    accountName?: string;
+    amount?: number;
+    description?: string;
     orderCode: number;
-    currency: string;
+    currency?: string;
     paymentLinkId: string;
     status: string;
     checkoutUrl: string;

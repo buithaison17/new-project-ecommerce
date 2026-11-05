@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import {
     CheckCircle2,
     Clock,
@@ -20,6 +20,7 @@ const POLL_INTERVAL_MS = 5000;
 export default function PaymentPage() {
     const { orderId } = useParams<{ orderId: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [paymentState, setPaymentState] = useState<PaymentState>("PENDING");
     const [qrCode, setQrCode] = useState<string>("");
@@ -30,17 +31,22 @@ export default function PaymentPage() {
 
     const orderIdNum = Number(orderId);
 
-    // Lấy thông tin thanh toán từ location state (được truyền từ CheckoutPage)
+    // Lấy thông tin thanh toán từ location.state hoặc window.history.state
     useEffect(() => {
-        const stateData = window.history.state?.usr;
+        const stateData: any = location.state || window.history.state?.usr;
         if (stateData?.checkout) {
             const checkout = stateData.checkout;
             setQrCode(checkout.qrCode || "");
             setCheckoutUrl(checkout.checkoutUrl || "");
-            setAmount(checkout.amount || 0);
-            setDescription(checkout.description || "");
+            setAmount(checkout.amount || stateData.order?.finalAmount || 0);
+            setDescription(
+                checkout.description || `Thanh toán đơn hàng #${orderId}`,
+            );
+        } else if (stateData?.order) {
+            setAmount(stateData.order.finalAmount || 0);
+            setDescription(`Thanh toán đơn hàng #${orderId}`);
         }
-    }, []);
+    }, [location.state, orderId]);
 
     // Auto-polling trạng thái thanh toán mỗi 5 giây
     useEffect(() => {
@@ -157,7 +163,12 @@ export default function PaymentPage() {
                                     </div>
                                     <div className="mt-4 inline-block rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-lg">
                                         <img
-                                            src={qrCode}
+                                            src={
+                                                qrCode.startsWith("http") ||
+                                                qrCode.startsWith("data:")
+                                                    ? qrCode
+                                                    : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrCode)}`
+                                            }
                                             alt="PayOS QR Code"
                                             className="h-56 w-56 object-contain sm:h-64 sm:w-64"
                                         />

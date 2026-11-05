@@ -704,8 +704,8 @@ export default function CheckoutPage() {
                                 checked={paymentMethod === "PAYOS"}
                                 onChange={() => setPaymentMethod("PAYOS")}
                                 icon={QrCode}
-                                title="Thanh toán qua PayOS (QR Code)"
-                                description="Quét mã QR hoặc chuyển khoản qua PayOS — nhanh chóng, an toàn và tiện lợi."
+                                title="Chuyển khoản online qua PayOS (Quét mã QR)"
+                                description="Tạo mã QR VietQR và link thanh toán PayOS — xác nhận thanh toán tự động ngay tức thì."
                             />
                         </div>
                         {paymentMethod === "CREDIT_CARD" && (
