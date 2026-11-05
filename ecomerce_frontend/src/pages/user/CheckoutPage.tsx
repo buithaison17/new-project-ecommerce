@@ -356,9 +356,9 @@ export default function CheckoutPage() {
                                 type="button"
                                 onClick={() => handleSelectDelivery("new")}
                                 className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs ${selectedDeliveryIndex === "new"
-                                    ? "bg-indigo-700 text-white ring-2 ring-indigo-200"
-                                    : "bg-indigo-600 text-white hover:bg-indigo-700"
-                                }`}
+                                        ? "bg-indigo-700 text-white ring-2 ring-indigo-200"
+                                        : "bg-indigo-600 text-white hover:bg-indigo-700"
+                                    }`}
                             >
                                 <Plus size={15} /> Thêm địa chỉ mới
                             </button>
@@ -411,9 +411,9 @@ export default function CheckoutPage() {
                                                 key={idx}
                                                 onClick={() => handleSelectDelivery(idx)}
                                                 className={`cursor-pointer rounded-xl border p-3.5 transition ${isSelected
-                                                    ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200 shadow-xs"
-                                                    : "border-slate-200 bg-slate-50/40 hover:border-indigo-300 hover:bg-slate-50"
-                                                }`}
+                                                        ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-200 shadow-xs"
+                                                        : "border-slate-200 bg-slate-50/40 hover:border-indigo-300 hover:bg-slate-50"
+                                                    }`}
                                             >
                                                 <div className="flex items-start justify-between">
                                                     <div className="flex items-center gap-2">
@@ -472,9 +472,9 @@ export default function CheckoutPage() {
                                         {selectedDeliveryIndex !== "new" && (
                                             <span
                                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${isReadOnly
-                                                    ? "bg-slate-200/80 text-slate-700"
-                                                    : "bg-emerald-100 text-emerald-800"
-                                                }`}
+                                                        ? "bg-slate-200/80 text-slate-700"
+                                                        : "bg-emerald-100 text-emerald-800"
+                                                    }`}
                                             >
                                                 {isReadOnly ? (
                                                     <>
@@ -577,9 +577,9 @@ export default function CheckoutPage() {
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition ${isReadOnly
-                                                ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
-                                                : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            }`}
+                                                    ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
+                                                    : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                }`}
                                             placeholder="Ví dụ: Bùi Thái Sơn"
                                         />
                                     </label>
@@ -595,9 +595,9 @@ export default function CheckoutPage() {
                                             value={phone}
                                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                                             className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition ${isReadOnly
-                                                ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
-                                                : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            }`}
+                                                    ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
+                                                    : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                }`}
                                             placeholder="09xx xxx xxx (đúng 10 số)"
                                         />
                                     </label>
@@ -610,9 +610,9 @@ export default function CheckoutPage() {
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             className={`mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm outline-none transition ${isReadOnly
-                                                ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
-                                                : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            }`}
+                                                    ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
+                                                    : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                }`}
                                             placeholder="email@example.com"
                                         />
                                     </label>
@@ -626,9 +626,9 @@ export default function CheckoutPage() {
                                             value={address}
                                             onChange={(e) => setAddress(e.target.value)}
                                             className={`mt-1.5 w-full resize-none rounded-xl border px-3.5 py-3 text-sm outline-none transition ${isReadOnly
-                                                ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
-                                                : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            }`}
+                                                    ? "cursor-default border-slate-200 bg-slate-50/90 text-slate-700 select-text focus:border-slate-300"
+                                                    : "border-slate-200 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                }`}
                                             placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
                                         />
                                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -780,12 +780,12 @@ export default function CheckoutPage() {
 }
 
 function PaymentOption({
-                           checked,
-                           onChange,
-                           icon: Icon,
-                           title,
-                           description,
-                       }: {
+    checked,
+    onChange,
+    icon: Icon,
+    title,
+    description,
+}: {
     checked: boolean;
     onChange: () => void;
     icon: typeof Truck;

@@ -64,7 +64,7 @@ export interface PlaceOrderParams {
 export const orderService = {
     // Lưu thông tin chi tiết sản phẩm của đơn hàng vào cache cục bộ
     saveOrderItemsToCache(
-        orderId: number,
+        orderId: number,x
         items: {
             productId: number;
             name: string;
