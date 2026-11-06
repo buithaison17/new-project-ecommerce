@@ -57,6 +57,7 @@ public class OrderService {
     private final TransactionRepository transactionRepository;
     private final CheckoutService checkoutService;
     private final UserInformationRepository userInformationRepository;
+    private final FlashSaleService flashSaleService;
 
     public OrderService(
             InventoryService inventoryService,
@@ -67,7 +68,8 @@ public class OrderService {
             OrderMapper orderMapper,
             TransactionRepository transactionRepository,
             @Lazy CheckoutService checkoutService,
-            UserInformationRepository userInformationRepository
+            UserInformationRepository userInformationRepository,
+            FlashSaleService flashSaleService
     ) {
         this.inventoryService = inventoryService;
         this.inventoryRepository = inventoryRepository;
@@ -78,6 +80,7 @@ public class OrderService {
         this.transactionRepository = transactionRepository;
         this.checkoutService = checkoutService;
         this.userInformationRepository = userInformationRepository;
+        this.flashSaleService = flashSaleService;
     }
 
     // Lấy toàn bộ danh sách đơn hàng (ADMIN)
@@ -154,9 +157,12 @@ public class OrderService {
                 .collect(Collectors.toMap(
                         CreateOrderItemRequest::productId,
                         CreateOrderItemRequest::quantity));
+        // Tính giá thực tế (áp dụng Flash Sale nếu có) cho từng sản phẩm
+        Map<Long, BigDecimal> unitPriceMap = flashSaleService.getEffectivePrices(
+                productMap.values().stream().toList());
         // Tính tổng tiền
-        BigDecimal totalAmount = productMap.values().stream()
-                .map(product -> product.getPrice().multiply(BigDecimal.valueOf(quantityMap.get(product.getId()))))
+        BigDecimal totalAmount = unitPriceMap.entrySet().stream()
+                .map(entry -> entry.getValue().multiply(BigDecimal.valueOf(quantityMap.get(entry.getKey()))))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         // Lấy địa chỉ nhận hàng
         UserDelivery userDelivery = userDeliveryRepository.findByIdAndUser(request.deliveryId(), user)
@@ -179,11 +185,11 @@ public class OrderService {
         List<OrderItem> orderItems = request.items().stream().map(item -> OrderItem.builder()
                 .order(finalOrder)
                 .totalAmount(
-                        productMap.get(item.productId()).getPrice().multiply(BigDecimal.valueOf(item.quantity()))
+                        unitPriceMap.get(item.productId()).multiply(BigDecimal.valueOf(item.quantity()))
                 )
                 .product(productMap.get(item.productId()))
                 .quantity(item.quantity())
-                .unitPrice(productMap.get(item.productId()).getPrice())
+                .unitPrice(unitPriceMap.get(item.productId()))
                 .build()).toList();
         orderItemRepository.saveAll(orderItems);
         // Trừ tồn kho

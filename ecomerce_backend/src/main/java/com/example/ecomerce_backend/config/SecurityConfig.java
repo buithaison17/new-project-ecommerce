@@ -46,7 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/users/me").authenticated()
                         .requestMatchers("/api/v1/auth/logout").authenticated()
                         // Catalog công khai: khách chưa đăng nhập vẫn xem được sản phẩm & ảnh
-                        .requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/flash-sales/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         // Toàn bộ API quản trị chỉ dành cho ADMIN
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
