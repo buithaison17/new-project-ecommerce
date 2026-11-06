@@ -111,10 +111,10 @@ export default function ProductsPage() {
         catalogService
             .getProducts({
                 keyword: keyword || undefined,
-                brand: brand || undefined,
+                brand: categoryId ? (brand || undefined) : undefined,
                 categoryId: categoryId ? Number(categoryId) : undefined,
-                minPrice: minPrice ? Number(minPrice) : undefined,
-                maxPrice: maxPrice ? Number(maxPrice) : undefined,
+                minPrice: categoryId && minPrice ? Number(minPrice) : undefined,
+                maxPrice: categoryId && maxPrice ? Number(maxPrice) : undefined,
                 sortBy,
                 sortDir: sortBy === "price" ? "asc" : "desc",
                 page,
@@ -183,14 +183,14 @@ export default function ProductsPage() {
     };
 
     const hasActiveFilters = Boolean(
-        keyword || brand || categoryId || minPrice || maxPrice,
+        keyword || (selectedCategory && (brand || minPrice || maxPrice)),
     );
 
     const filteredProducts = useMemo(() => {
         const list = result?.content || [];
-        if (!brand) return list;
+        if (!categoryId || !brand) return list;
         return list.filter((p) => matchProductBrand(p.name, brand));
-    }, [result, brand]);
+    }, [result, brand, categoryId]);
 
     return (
         <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -202,20 +202,23 @@ export default function ProductsPage() {
             {/* Quick Filter Bar for active tags & mobile toggle */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs lg:hidden"
-                    >
-                        <Filter size={14} className="text-indigo-600" />
-                        <span>Bộ lọc tìm kiếm</span>
-                        {hasActiveFilters && (
-                            <span className="flex h-2 w-2 rounded-full bg-indigo-600" />
-                        )}
-                    </button>
+                    {/* Chỉ hiện nút mở bộ lọc mobile khi đang ở trong danh mục sản phẩm */}
+                    {selectedCategory && (
+                        <button
+                            type="button"
+                            onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs lg:hidden"
+                        >
+                            <Filter size={14} className="text-indigo-600" />
+                            <span>Bộ lọc tìm kiếm</span>
+                            {hasActiveFilters && (
+                                <span className="flex h-2 w-2 rounded-full bg-indigo-600" />
+                            )}
+                        </button>
+                    )}
 
                     {/* Active filter badges */}
-                    {brand && (
+                    {selectedCategory && brand && (
                         <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700">
                             Thương hiệu: {brand}
                             <button
@@ -255,7 +258,7 @@ export default function ProductsPage() {
                         </span>
                     )}
 
-                    {(minPrice || maxPrice) && (
+                    {selectedCategory && (minPrice || maxPrice) && (
                         <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700">
                             Giá: {minPrice ? `${Number(minPrice).toLocaleString("vi-VN")}đ` : "0đ"} -{" "}
                             {maxPrice ? `${Number(maxPrice).toLocaleString("vi-VN")}đ` : "Tối đa"}
@@ -287,30 +290,37 @@ export default function ProductsPage() {
                 />
             </div>
 
-            <div className="mt-5 grid gap-6 lg:grid-cols-[280px_1fr]">
-                {/* Desktop and Mobile Filter Sidebar */}
-                <div
-                    className={`${
-                        mobileFilterOpen ? "block" : "hidden"
-                    } lg:block`}
-                >
-                    <FilterPanel
-                        brands={availableBrands}
-                        selectedBrand={brand}
-                        onToggleBrand={(b) => updateFilter("brand", b === brand ? "" : b)}
-                        minPrice={minPrice}
-                        maxPrice={maxPrice}
-                        onPriceRange={updatePriceRange}
-                        onClear={clearFilters}
-                        selectedCategory={selectedCategory}
-                    />
-                </div>
+            <div
+                className={`mt-5 ${
+                    selectedCategory ? "grid gap-6 lg:grid-cols-[280px_1fr]" : ""
+                }`}
+            >
+                {/* Desktop and Mobile Filter Sidebar: chỉ hiện khi có danh mục sản phẩm */}
+                {selectedCategory && (
+                    <div
+                        className={`${
+                            mobileFilterOpen ? "block" : "hidden"
+                        } lg:block`}
+                    >
+                        <FilterPanel
+                            brands={availableBrands}
+                            selectedBrand={brand}
+                            onToggleBrand={(b) => updateFilter("brand", b === brand ? "" : b)}
+                            minPrice={minPrice}
+                            maxPrice={maxPrice}
+                            onPriceRange={updatePriceRange}
+                            onClear={clearFilters}
+                            selectedCategory={selectedCategory}
+                        />
+                    </div>
+                )}
 
                 <div className="min-w-0">
                     <ProductResults
                         loading={loading}
                         error={error}
                         products={filteredProducts}
+                        isFullWidth={!selectedCategory}
                     />
 
                     {result && result.totalPages > 1 && (
@@ -445,7 +455,7 @@ function CategoryHeader({
                     Tất cả sản phẩm tại ShopNova
                 </h1>
                 <p className="text-xs text-slate-300 leading-relaxed sm:text-sm">
-                    Lọc theo thương hiệu và khoảng giá để tìm kiếm nhanh nhất sản phẩm bạn đang cần.
+                    Khám phá toàn bộ danh mục sản phẩm chính hãng với mức giá ưu đãi và chính sách bảo hành tốt nhất.
                 </p>
             </div>
         </div>
@@ -688,10 +698,12 @@ function ProductResults({
     loading,
     error,
     products,
+    isFullWidth = false,
 }: {
     loading: boolean;
     error: string;
     products: ProductSummary[];
+    isFullWidth?: boolean;
 }) {
     if (error) {
         return (
@@ -701,9 +713,13 @@ function ProductResults({
         );
     }
 
+    const gridClass = isFullWidth
+        ? "grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4"
+        : "grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 xl:grid-cols-4";
+
     if (loading) {
         return (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            <div className={gridClass}>
                 {Array.from({ length: 8 }, (_, index) => (
                     <div
                         key={index}
@@ -715,7 +731,7 @@ function ProductResults({
     }
 
     return (
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
+        <div className={gridClass}>
             {products.length ? (
                 products.map((product) => (
                     <ProductCard product={product} key={product.id} />
