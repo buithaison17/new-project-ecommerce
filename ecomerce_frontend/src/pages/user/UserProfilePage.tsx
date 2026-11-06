@@ -516,25 +516,7 @@ export default function UserProfilePage() {
                                         <ShoppingBag size={16} /> Đơn hàng của tôi
                                     </span>
                                 ),
-                                children: (
-                                    <div className="mt-4 space-y-6">
-                                        {/* Banner điều hướng tới trang lịch sử đơn hàng chuyên biệt */}
-                                        <div className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                            <div>
-                                                <p className="text-sm font-black text-indigo-950">
-                                                    Trang quản lý đơn hàng chuyên biệt
-                                                </p>
-                                                <p className="mt-0.5 text-xs text-indigo-700">
-                                                    Xem lịch sử, chi tiết từng sản phẩm và theo dõi đơn hàng toàn màn hình
-                                                </p>
-                                            </div>
-                                            <Link
-                                                to="/orders"
-                                                className="inline-flex w-fit items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"
-                                            >
-                                                Mở trang đơn hàng <ExternalLink size={14} />
-                                            </Link>
-                                        </div>
+
 
                                         {/* Bộ lọc trạng thái đơn hàng */}
                                         <div className="flex flex-wrap gap-2">
