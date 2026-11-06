@@ -25,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -46,6 +48,61 @@ public class FlashSaleService {
                 .filter(sale -> isRunning(sale, now))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Tính giá bán thực tế của sản phẩm tại thời điểm hiện tại.
+     * Nếu có nhiều chương trình Flash Sale cùng áp dụng, lấy mức giá thấp nhất.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal getEffectivePrice(Product product) {
+        return getEffectivePrices(List.of(product)).get(product.getId());
+    }
+
+    /**
+     * Tính giá bán thực tế cho nhiều sản phẩm, chỉ truy vấn danh sách Flash Sale một lần.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, BigDecimal> getEffectivePrices(List<Product> products) {
+        LocalDateTime now = LocalDateTime.now();
+        List<FlashSale> runningSales = flashSaleRepository
+                .findByIsDeletedFalseAndIsActiveTrueOrderByStartAtAsc().stream()
+                .filter(sale -> isRunning(sale, now))
+                .toList();
+        Map<Long, BigDecimal> result = new HashMap<>();
+        for (Product product : products) {
+            BigDecimal price = product.getPrice();
+            BigDecimal effective = runningSales.stream()
+                    .filter(sale -> appliesTo(sale, product))
+                    .map(sale -> applyDiscount(price, sale))
+                    .min(BigDecimal::compareTo)
+                    .orElse(price);
+            result.put(product.getId(), effective);
+        }
+        return result;
+    }
+
+    private boolean appliesTo(FlashSale sale, Product product) {
+        return switch (sale.getScope()) {
+            case ALL -> true;
+            case CATEGORY -> sale.getCategory() != null
+                    && product.getCategory() != null
+                    && sale.getCategory().getId().equals(product.getCategory().getId());
+            case PRODUCT -> sale.getProduct() != null
+                    && sale.getProduct().getId().equals(product.getId());
+        };
+    }
+
+    private BigDecimal applyDiscount(BigDecimal price, FlashSale sale) {
+        BigDecimal discounted = switch (sale.getDiscountType()) {
+            case PERCENTAGE -> price.multiply(BigDecimal.ONE.subtract(
+                    sale.getDiscountValue().divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP)));
+            case FIXED_AMOUNT -> price.subtract(sale.getDiscountValue());
+        };
+        if (discounted.signum() < 0) {
+            return BigDecimal.ZERO;
+        }
+        return discounted.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     // ------------------------------------------------------------------ Admin
