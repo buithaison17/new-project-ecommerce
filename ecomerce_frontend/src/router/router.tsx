@@ -3,6 +3,7 @@ import AppLayout from "../components/AppLayout";
 import AdminLayout from "../components/AdminLayout";
 import HomePage from "../pages/user/HomePage";
 import ProductsPage from "../pages/user/ProductsPage";
+import FlashSalePage from "../pages/user/FlashSalePage";
 import ProductDetailPage from "../pages/user/ProductDetailPage";
 import RegisterPage from "../pages/user/RegisterPage";
 import LoginPage from "../pages/user/LoginPage";
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
         children: [
             { path: "/", element: <HomePage /> },
             { path: "/products", element: <ProductsPage /> },
+            { path: "/flash-sale", element: <FlashSalePage /> },
             { path: "/products/:id", element: <ProductDetailPage /> },
             { path: "/cart", element: <CartPage /> },
             {
