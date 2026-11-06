@@ -1,0 +1,115 @@
+name: CI/CD Student Management
+# Chạy workflow khi push code lên nhánh main
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    build:
+        name: Test và Build ứng dụng
+        runs-on: ubuntu-latest
+
+        steps:
+            # 1. Lấy source code
+            - name: Checkout source code
+              uses: actions/checkout@v4
+
+            # 2. Thiết lập Java cho Spring Boot
+            - name: Thiết lập môi trường Java
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: "21"
+                  cache: gradle
+
+            # 3. Cấp quyền thực thi Gradle Wrapper
+            - name: Cấp quyền thực thi gradlew
+              working-directory: ecomerce_backend
+              run: chmod +x gradlew
+
+            # 4. Kiểm thử backend
+            # - name: Test Spring Boot
+            #   working-directory: student-backend
+            #   run: ./gradlew test
+
+            # 5. Build backend
+            - name: Build Spring Boot
+              working-directory: ecomerce_backend
+              run: ./gradlew bootJar
+
+            # 6. Thiết lập Node.js cho React
+            - name: Thiết lập môi trường Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: npm
+                  cache-dependency-path: ecomerce_frontend/package-lock.json
+
+            # 7. Cài đặt dependencies frontend
+            - name: Cài đặt dependencies React
+              working-directory: ecomerce_frontend
+              run: npm ci
+
+            # 8. Kiểm thử frontend nếu có script test
+            # - name: Test React
+            #   working-directory: student-frontend
+            #   run: npm test --if-present
+
+            # 9. Build frontend
+            - name: Build React
+              working-directory: ecomerce_frontend
+              run: npm run build
+
+            # 10. Đăng nhập Docker Hub
+            - name: Đăng nhập Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # 11. Build và push image backend
+            - name: Build và push Backend image
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./ecomerce_backend
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/ecomerce_backend:latest
+
+            # 12. Build và push image frontend
+            - name: Build và push Frontend image
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./ecomerce_frontend
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/ecomerce_frontend:latest
+
+    deploy:
+        name: Deploy lên VPS
+        needs: build
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Triển khai ứng dụng tới VPS
+              uses: appleboy/ssh-action@v1.2.5
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  username: ${{ secrets.VPS_USERNAME }}
+                  key: ${{ secrets.VPS_PRIVATE_KEY }}
+                  script: |
+                      set -e
+
+                      mkdir -p ~/ecomerce
+                      cd ~/ecomerce
+
+                      if [ ! -d ".git" ]; then
+                        git clone https://github.com/buithaison17/project-ecomerce .
+                      else
+                        git pull origin main
+                      fi
+
+                      export DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME }}"
+
+                      docker compose pull backend frontend
+                      docker compose up -d --no-build backend frontend
+                      docker compose ps
