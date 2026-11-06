@@ -30,7 +30,7 @@ import { useAuthStore } from "../../store/authStore";
 import { userService, normalizeDate, type UserProfile } from "../../service/userService";
 import { formatProductImageUrl } from "../../lib/image";
 import { orderService } from "../../service/orderService";
-import OrderDetailModal from "../../components/OrderDetailModal.tsx";
+import OrderDetailModal from "../../components/OrderDetailModal";
 import type {
     OrderItemResponse,
     OrderResponse,
@@ -116,11 +116,11 @@ export default function UserProfilePage() {
         resolver: zodResolver(profileSchema),
         values: profile
             ? {
-                fullName: profile.fullName || "",
-                email: profile.email || "",
-                dateOfBirth: normalizeDate(profile.dateOfBirth),
-                gender: (profile.gender as "MALE" | "FEMALE") || "MALE",
-            }
+                  fullName: profile.fullName || "",
+                  email: profile.email || "",
+                  dateOfBirth: normalizeDate(profile.dateOfBirth),
+                  gender: (profile.gender as "MALE" | "FEMALE") || "MALE",
+              }
             : undefined,
     });
 
@@ -177,6 +177,7 @@ export default function UserProfilePage() {
     const loadProfile = async () => {
         try {
             setLoading(true);
+            // Kết nối với backend API lấy thông tin profile người dùng
             const data = await userService.getCurrentUser();
             setProfile(data);
             resetProfile({
@@ -200,6 +201,7 @@ export default function UserProfilePage() {
         try {
             setOrdersLoading(true);
             const statusParam = orderStatusFilter === "ALL" ? undefined : orderStatusFilter;
+            // Kết nối với backend API lấy danh sách đơn hàng của người dùng
             const res = await orderService.getMyOrders(ordersPage, ordersPageSize, statusParam);
             setOrders(res.content || []);
             setOrdersTotalPages(res.totalPages || 1);
@@ -215,6 +217,7 @@ export default function UserProfilePage() {
     const loadDeliveries = async () => {
         try {
             setDeliveriesLoading(true);
+            // Kết nối với backend API lấy sổ địa chỉ giao hàng
             const data = await orderService.getDeliveries(1, 20);
             setDeliveries(data || []);
         } catch (err) {
@@ -226,6 +229,7 @@ export default function UserProfilePage() {
 
     const handleCancelOrder = async (orderId: number) => {
         try {
+            // Kết nối với backend API hủy đơn hàng
             await orderService.cancelOrder(orderId);
             message.success("Hủy đơn hàng thành công!");
             await loadOrders();
@@ -258,6 +262,7 @@ export default function UserProfilePage() {
 
         try {
             setAddingDelivery(true);
+            // Kết nối với backend API tạo địa chỉ giao hàng mới
             await orderService.createDelivery({ address: cleanAddress, phoneNumber: cleanPhone });
             message.success("Thêm địa chỉ nhận hàng thành công!");
             setNewAddress("");
@@ -272,6 +277,7 @@ export default function UserProfilePage() {
 
     const handleDeleteDelivery = async (delivery: UserDeliveryResponse) => {
         try {
+            // Kết nối với backend API xóa địa chỉ giao hàng
             await orderService.deleteDeliveryAddress({
                 address: delivery.address,
                 phoneNumber: delivery.phoneNumber,
@@ -316,6 +322,7 @@ export default function UserProfilePage() {
                 formData.append("avatarUrl", avatarFile);
             }
 
+            // Kết nối với backend API cập nhật thông tin profile
             const updated = await userService.updateProfile(formData);
             message.success("Cập nhật thông tin thành công");
             setProfile(updated);
@@ -327,12 +334,12 @@ export default function UserProfilePage() {
             useAuthStore.setState((prev) => ({
                 user: prev.user
                     ? {
-                        ...prev.user,
-                        fullName: updated.fullName,
-                        avatarUrl: updated.avatarUrl,
-                        dateOfBirth: updated.dateOfBirth,
-                        email: updated.email,
-                    }
+                          ...prev.user,
+                          fullName: updated.fullName,
+                          avatarUrl: updated.avatarUrl,
+                          dateOfBirth: updated.dateOfBirth,
+                          email: updated.email,
+                      }
                     : null,
             }));
             await loadCurrentUser();
@@ -356,6 +363,7 @@ export default function UserProfilePage() {
 
     const onSubmitPassword = async (data: PasswordForm) => {
         try {
+            // Kết nối với backend API đổi mật khẩu
             await userService.changePassword({
                 oldPassword: data.oldPassword,
                 newPassword: data.newPassword,
@@ -985,11 +993,11 @@ function OrderStatusBadge({ status }: { status: OrderStatus }) {
 }
 
 function FormField({
-                       label,
-                       error,
-                       icon,
-                       children,
-                   }: {
+    label,
+    error,
+    icon,
+    children,
+}: {
     label: string;
     error?: string;
     icon: React.ReactNode;

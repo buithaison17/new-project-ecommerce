@@ -3,6 +3,7 @@ import AppLayout from "../components/AppLayout";
 import AdminLayout from "../components/AdminLayout";
 import HomePage from "../pages/user/HomePage";
 import ProductsPage from "../pages/user/ProductsPage";
+import FlashSalePage from "../pages/user/FlashSalePage";
 import ProductDetailPage from "../pages/user/ProductDetailPage";
 import RegisterPage from "../pages/user/RegisterPage";
 import LoginPage from "../pages/user/LoginPage";
@@ -15,7 +16,7 @@ import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 // import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
-// import AdminProductsPage from "../pages/admin/AdminProductsPage";
+import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 // import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
         children: [
             { path: "/", element: <HomePage /> },
             { path: "/products", element: <ProductsPage /> },
+            { path: "/flash-sale", element: <FlashSalePage /> },
             { path: "/products/:id", element: <ProductDetailPage /> },
             { path: "/cart", element: <CartPage /> },
             {
@@ -95,7 +97,7 @@ export const router = createBrowserRouter([
             { index: true, element: <AdminDashboardPage /> },
             { path: "orders", element: <AdminOrdersPage /> },
             { path: "categories", element: <AdminCategoriesPage /> },
-            // { path: "products", element: <AdminProductsPage /> },
+            { path: "products", element: <AdminProductsPage /> },
             // { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
         ],

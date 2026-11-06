@@ -104,11 +104,15 @@ public class AuthService {
         return userMapper.mapToUserRegisterResponse(user, userInformation);
     }
 
+    @Transactional
     public void changePassword(ChangePasswordRequest request) {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userPrincipal.getUser();
         if (!passwordEncoder.matches(request.oldPassword(), user.getPassword())) {
             throw new NotMatchPasswordException("Mật khẩu cũ không khớp");
+        }
+        if (request.oldPassword().equals(request.newPassword())) {
+            throw new NotMatchPasswordException("Mật khẩu mới không được trùng mật khẩu cũ");
         }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
