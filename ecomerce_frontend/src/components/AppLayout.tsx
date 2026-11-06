@@ -169,10 +169,10 @@ export default function AppLayout() {
                             Tất cả sản phẩm
                         </Link>
                         <Link
-                            to="/products?sortBy=createdAt"
+                            to="/flash-sale"
                             className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
                         >
-                            Hàng mới về
+                            Flash Sale
                         </Link>
                         <Link
                             to="/orders"
@@ -338,6 +338,13 @@ export default function AppLayout() {
                                         Tất cả sản phẩm
                                     </Link>
                                     <Link
+                                        to="/flash-sale"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
+                                    >
+                                        Flash Sale
+                                    </Link>
+                                    <Link
                                         to="/orders"
                                         onClick={() => setMobileMenuOpen(false)}
                                         className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600"
@@ -478,8 +485,8 @@ export default function AppLayout() {
                                     </Link>
                                 </li>
                                 <li>
-                                    <Link to="/products?sortBy=createdAt" className="hover:text-indigo-400 transition">
-                                        Sản phẩm mới nhất
+                                    <Link to="/flash-sale" className="hover:text-indigo-400 transition">
+                                        Flash Sale
                                     </Link>
                                 </li>
                                 <li>
