@@ -3,6 +3,7 @@ import {
     ChevronRight,
     CircleUserRound,
     Clock,
+    Flame,
     Headphones,
     Layers,
     LogOut,
@@ -18,10 +19,11 @@ import {
     Truck,
     X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import { useFlashSaleStore } from "../store/flashSaleStore";
 import { catalogService } from "../service/catalogService";
 import type { Category } from "../types/catalog";
 import CartButton from "./CartButton";
@@ -36,13 +38,18 @@ export default function AppLayout() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+    const catalogRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
     const user = useAuthStore((state) => state.user);
     const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser);
     const logout = useAuthStore((state) => state.logout);
+    const activeSales = useFlashSaleStore((state) => state.activeSales);
+    const fetchActiveSales = useFlashSaleStore((state) => state.fetchActiveSales);
 
     useEffect(() => {
         loadCurrentUser().catch(() => undefined);
-    }, [loadCurrentUser]);
+        fetchActiveSales().catch(() => undefined);
+    }, [loadCurrentUser, fetchActiveSales]);
 
     useEffect(() => {
         catalogService
@@ -60,6 +67,44 @@ export default function AppLayout() {
         setProfileOpen(false);
         setCatalogOpen(false);
     }, [location.pathname]);
+
+    // Close catalog dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                catalogRef.current &&
+                !catalogRef.current.contains(event.target as Node)
+            ) {
+                setCatalogOpen(false);
+            }
+        }
+
+        if (catalogOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [catalogOpen]);
+
+    // Close profile dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                profileRef.current &&
+                !profileRef.current.contains(event.target as Node)
+            ) {
+                setProfileOpen(false);
+            }
+        }
+
+        if (profileOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [profileOpen]);
 
     const submitSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -129,12 +174,11 @@ export default function AppLayout() {
                     {/* Desktop Navigation */}
                     <nav className="hidden items-center gap-1 lg:flex">
                         <div
+                            ref={catalogRef}
                             className="relative"
-                            onMouseLeave={() => setCatalogOpen(false)}
                         >
                             <button
                                 type="button"
-                                onMouseEnter={() => setCatalogOpen(true)}
                                 onClick={() => setCatalogOpen((open) => !open)}
                                 className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
                                     catalogOpen
@@ -169,10 +213,16 @@ export default function AppLayout() {
                             Tất cả sản phẩm
                         </Link>
                         <Link
-                            to="/products?sortBy=createdAt"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            to="/flash-sale"
+                            className="relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition hover:bg-slate-100 hover:text-rose-600 text-rose-600"
                         >
-                            Hàng mới về
+                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                            <span>Flash Sale</span>
+                            {activeSales.length > 0 && (
+                                <span className="ml-1 inline-flex items-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-black text-white shadow-xs">
+                                    HOT
+                                </span>
+                            )}
                         </Link>
                         <Link
                             to="/orders"
@@ -215,7 +265,7 @@ export default function AppLayout() {
                         <CartButton />
 
                         {user ? (
-                            <div className="relative">
+                            <div ref={profileRef} className="relative">
                                 <button
                                     type="button"
                                     onClick={() => setProfileOpen((open) => !open)}
@@ -336,6 +386,21 @@ export default function AppLayout() {
                                         className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600"
                                     >
                                         Tất cả sản phẩm
+                                    </Link>
+                                    <Link
+                                        to="/flash-sale"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
+                                    >
+                                        <span className="flex items-center gap-2.5">
+                                            <Flame size={17} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                                            <span>Flash Sale</span>
+                                        </span>
+                                        {activeSales.length > 0 && (
+                                            <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white">
+                                                HOT
+                                            </span>
+                                        )}
                                     </Link>
                                     <Link
                                         to="/orders"
@@ -478,8 +543,8 @@ export default function AppLayout() {
                                     </Link>
                                 </li>
                                 <li>
-                                    <Link to="/products?sortBy=createdAt" className="hover:text-indigo-400 transition">
-                                        Sản phẩm mới nhất
+                                    <Link to="/flash-sale" className="hover:text-indigo-400 transition">
+                                        Flash Sale
                                     </Link>
                                 </li>
                                 <li>
@@ -682,7 +747,7 @@ function CategoryMegaMenu({
     return (
         <div className="absolute left-0 top-full mt-1 z-50 flex w-[680px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
             {/* Sidebar list */}
-            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5">
+            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5 max-h-[460px] overflow-y-auto">
                 <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Tất cả danh mục
                 </p>

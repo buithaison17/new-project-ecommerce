@@ -2,11 +2,13 @@ import {
     ArrowLeft,
     ChevronLeft,
     ChevronRight,
+    Flame,
     Maximize2,
     PackageCheck,
     RotateCcw,
     ShieldCheck,
     ShoppingCart,
+    Timer,
     Truck,
     X,
 } from "lucide-react";
@@ -16,6 +18,7 @@ import { Link, useParams } from "react-router-dom";
 import { formatProductImageUrl } from "../../lib/image";
 import { catalogService } from "../../service/catalogService";
 import { useCartStore } from "../../store/cartStore";
+import { useFlashSaleStore } from "../../store/flashSaleStore";
 import type { Product } from "../../types/catalog";
 
 const formatPrice = (price: number) =>
@@ -33,6 +36,37 @@ export default function ProductDetailPage() {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
     const addItem = useCartStore((state) => state.addItem);
+    const getPriceInfo = useFlashSaleStore((state) => state.getPriceInfo);
+
+    const flashInfo = useMemo(() => {
+        if (!product) {
+            return {
+                originalPrice: 0,
+                salePrice: 0,
+                discountPercent: 0,
+                isFlashSale: false,
+            };
+        }
+        return getPriceInfo(product);
+    }, [product, getPriceInfo]);
+
+    const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
+
+    useEffect(() => {
+        if (!flashInfo.isFlashSale || !flashInfo.endAt) return;
+        const target = new Date(flashInfo.endAt).getTime();
+        const tick = () => {
+            const diff = Math.max(0, target - Date.now());
+            setTimeLeft({
+                h: Math.floor(diff / 3_600_000),
+                m: Math.floor((diff % 3_600_000) / 60_000),
+                s: Math.floor((diff % 60_000) / 1000),
+            });
+        };
+        tick();
+        const timerId = setInterval(tick, 1000);
+        return () => clearInterval(timerId);
+    }, [flashInfo.isFlashSale, flashInfo.endAt]);
 
     useEffect(() => {
         let cancelled = false;
@@ -151,7 +185,15 @@ export default function ProductDetailPage() {
     const currentImageUrl = productImages[activeImageIndex] || productImages[0];
 
     const handleAddToCart = () => {
-        addItem(product);
+        if (!product) return;
+        if (flashInfo.isFlashSale) {
+            addItem({
+                ...product,
+                price: flashInfo.salePrice,
+            });
+        } else {
+            addItem(product);
+        }
         toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
     };
 
@@ -290,15 +332,71 @@ export default function ProductDetailPage() {
                     </h1>
 
                     {/* Price and Stock status */}
-                    <div className="mt-5 flex flex-wrap items-baseline gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                        <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                Giá niêm yết
-                            </p>
-                            <p className="text-3xl font-black text-indigo-600 mt-0.5">
-                                {formatPrice(product.price)}
-                            </p>
+                    {flashInfo.isFlashSale && (
+                        <div className="mt-5 flex items-center justify-between rounded-2xl bg-gradient-to-r from-rose-600 via-orange-500 to-amber-500 p-4 text-white shadow-md">
+                            <div className="flex items-center gap-2">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 backdrop-blur-xs">
+                                    <Flame size={18} className="animate-pulse" />
+                                </span>
+                                <div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-100">
+                                        Đang áp dụng ưu đãi
+                                    </span>
+                                    <h4 className="text-sm font-black">
+                                        {flashInfo.appliedSale?.name || "Flash Sale Giảm Sốc"}
+                                    </h4>
+                                </div>
+                            </div>
+                            {flashInfo.endAt && (
+                                <div className="flex items-center gap-1.5 rounded-xl bg-black/30 px-3 py-1.5 text-xs font-bold backdrop-blur-xs">
+                                    <Timer size={14} className="text-amber-300" />
+                                    <span>
+                                        {String(timeLeft.h).padStart(2, "0")}:
+                                        {String(timeLeft.m).padStart(2, "0")}:
+                                        {String(timeLeft.s).padStart(2, "0")}
+                                    </span>
+                                </div>
+                            )}
                         </div>
+                    )}
+
+                    <div
+                        className={`mt-4 flex flex-wrap items-baseline gap-4 rounded-2xl border p-4 ${
+                            flashInfo.isFlashSale
+                                ? "border-rose-200 bg-rose-50/60"
+                                : "border-slate-100 bg-slate-50/70"
+                        }`}
+                    >
+                        {flashInfo.isFlashSale ? (
+                            <div>
+                                <p className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                                    <Flame size={13} /> Giá Flash Sale
+                                </p>
+                                <div className="flex flex-wrap items-baseline gap-3 mt-1">
+                                    <p className="text-3xl font-black text-rose-600">
+                                        {formatPrice(flashInfo.salePrice)}
+                                    </p>
+                                    <p className="text-base font-semibold text-slate-400 line-through">
+                                        {formatPrice(product.price)}
+                                    </p>
+                                    <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-black text-white shadow-xs">
+                                        -{flashInfo.discountPercent}%
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-xs font-semibold text-rose-700">
+                                    Tiết kiệm ngay: {formatPrice(product.price - flashInfo.salePrice)}
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    Giá niêm yết
+                                </p>
+                                <p className="text-3xl font-black text-indigo-600 mt-0.5">
+                                    {formatPrice(product.price)}
+                                </p>
+                            </div>
+                        )}
 
                         <span
                             className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${

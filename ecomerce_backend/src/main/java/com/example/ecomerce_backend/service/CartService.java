@@ -30,6 +30,7 @@ public class CartService {
     private final InventoryRepository inventoryRepository;
     private final UserRepository userRepository;
     private final CatalogMapper catalogMapper;
+    private final FlashSaleService flashSaleService;
 
     /**
      * Xem giỏ hàng. Tự dọn các dòng có sản phẩm đã bị ẩn/xóa khỏi catalog.
@@ -156,15 +157,19 @@ public class CartService {
         Map<Long, Integer> stock = productIds.isEmpty() ? Map.of()
                 : inventoryRepository.findByProductIdIn(productIds).stream()
                 .collect(Collectors.toMap(i -> i.getProduct().getId(), Inventory::availableQuantity));
+        // Giá hiển thị phải khớp với giá thực tế khi đặt hàng (áp dụng Flash Sale)
+        Map<Long, BigDecimal> effectivePrices = flashSaleService.getEffectivePrices(
+                items.stream().map(CartItem::getProduct).toList());
 
         List<CartItemResponse> lines = items.stream().map(item -> {
             Product product = item.getProduct();
-            BigDecimal subtotal = product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal unitPrice = effectivePrices.getOrDefault(product.getId(), product.getPrice());
+            BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
             return new CartItemResponse(
                     product.getId(),
                     product.getName(),
                     catalogMapper.thumbnailUrl(product),
-                    product.getPrice(),
+                    unitPrice,
                     item.getQuantity(),
                     Math.max(stock.getOrDefault(product.getId(), 0), 0),
                     subtotal

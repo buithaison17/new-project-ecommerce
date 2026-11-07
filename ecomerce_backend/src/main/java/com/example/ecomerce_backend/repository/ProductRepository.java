@@ -19,4 +19,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     @Query("SELECT COUNT(p) FROM Product p WHERE p.isDeleted = false")
     long countActive();
+
+    Optional<Product> findFirstByName(String name);
 }

@@ -3,20 +3,22 @@ import AppLayout from "../components/AppLayout";
 import AdminLayout from "../components/AdminLayout";
 import HomePage from "../pages/user/HomePage";
 import ProductsPage from "../pages/user/ProductsPage";
+import FlashSalePage from "../pages/user/FlashSalePage";
 import ProductDetailPage from "../pages/user/ProductDetailPage";
 import RegisterPage from "../pages/user/RegisterPage";
 import LoginPage from "../pages/user/LoginPage";
 import CartPage from "../pages/user/CartPage";
 import CheckoutPage from "../pages/user/CheckoutPage";
 import CheckoutSuccessPage from "../pages/user/CheckoutSuccessPage";
+import PaymentPage from "../pages/payment/PaymentPage";
 import UserProfilePage from "../pages/user/UserProfilePage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
-import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
+// import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
-import OrdersPage from "../pages/user/OrdersPage";
+// import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -26,35 +28,49 @@ export const router = createBrowserRouter([
         children: [
             { path: "/", element: <HomePage /> },
             { path: "/products", element: <ProductsPage /> },
+            { path: "/flash-sale", element: <FlashSalePage /> },
             { path: "/products/:id", element: <ProductDetailPage /> },
             { path: "/cart", element: <CartPage /> },
             {
                 path: "/checkout",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <CheckoutPage />
                     </ProtectedRoute>
+                ),
             },
             {
                 path: "/checkout/success",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <CheckoutSuccessPage />
-                    </ProtectedRoute>,
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "/payment/:orderId",
+                element: (
+                    <ProtectedRoute role="CUSTOMER">
+                        <PaymentPage />
+                    </ProtectedRoute>
+                ),
             },
             {
                 path: "/orders",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
-                        <OrdersPage />
+                        {/* <OrdersPage /> */}
+                        <></>
                     </ProtectedRoute>
+                ),
             },
             {
                 path: "/profile",
-                element:
+                element: (
                     <ProtectedRoute role="CUSTOMER">
                         <UserProfilePage />
                     </ProtectedRoute>
+                ),
             },
         ],
     },
@@ -82,7 +98,7 @@ export const router = createBrowserRouter([
             { path: "orders", element: <AdminOrdersPage /> },
             { path: "categories", element: <AdminCategoriesPage /> },
             { path: "products", element: <AdminProductsPage /> },
-            { path: "inventory", element: <AdminInventoryPage /> },
+            // { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
         ],
     },

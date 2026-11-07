@@ -1,9 +1,14 @@
 package com.example.ecomerce_backend.config;
 
+import com.example.ecomerce_backend.constants.FlashSaleDiscountType;
+import com.example.ecomerce_backend.constants.FlashSaleScope;
 import com.example.ecomerce_backend.model.entity.Category;
+import com.example.ecomerce_backend.model.entity.FlashSale;
 import com.example.ecomerce_backend.model.entity.Inventory;
 import com.example.ecomerce_backend.model.entity.Product;
+import com.example.ecomerce_backend.model.entity.ProductImage;
 import com.example.ecomerce_backend.repository.CategoryRepository;
+import com.example.ecomerce_backend.repository.FlashSaleRepository;
 import com.example.ecomerce_backend.repository.InventoryRepository;
 import com.example.ecomerce_backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,51 +19,762 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * Tạo dữ liệu mẫu để team Frontend có thứ để hiển thị khi dev.
- * Chỉ chạy khi chưa có sản phẩm nào; tắt bằng biến môi trường SEED_SAMPLE_DATA=false (nên tắt ở production).
+ * Tự động khởi tạo dữ liệu mẫu phong phú và toàn diện cho sàn thương mại điện tử:
+ * - Bao phủ đầy đủ các ngành hàng lớn: Điện thoại, Laptop, Phụ kiện, Thời trang Nam/Nữ,
+ *   Đồng hồ & Trang sức, Mỹ phẩm, Thiết bị điện gia dụng, Nhà cửa & Đời sống,
+ *   Bách hóa thực phẩm, Thể thao dã ngoại, Mẹ & Bé, Sách & Văn phòng phẩm.
+ * - Đi kèm hình ảnh Unsplash CDN chất lượng cao, mô tả chân thực, tồn kho đa dạng và Flash Sale.
+ * - Tính chất Idempotent: chạy an toàn, không trùng lặp khi khởi động lại.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.seed-sample-data", havingValue = "true")
 public class SampleDataInitializer implements CommandLineRunner {
+
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final FlashSaleRepository flashSaleRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
-        if (productRepository.count() > 0) {
-            return;
-        }
-        Category phone = categoryRepository.save(Category.builder()
-                .name("Điện thoại").description("Điện thoại thông minh").build());
-        Category laptop = categoryRepository.save(Category.builder()
-                .name("Laptop").description("Máy tính xách tay").build());
-        Category accessory = categoryRepository.save(Category.builder()
-                .name("Phụ kiện").description("Tai nghe, sạc, ốp lưng...").build());
+        log.info("Bắt đầu kiểm tra và khởi tạo dữ liệu mẫu cho hệ thống e-commerce...");
 
-        createProduct("Điện thoại Galaxy A55", "Màn hình 6.6 inch, RAM 8GB, bộ nhớ 128GB", "9990000", phone, 25);
-        createProduct("iPhone 15 128GB", "Chip A16 Bionic, camera 48MP", "19990000", phone, 3);
-        createProduct("Laptop Dell Inspiron 15", "Core i5, RAM 16GB, SSD 512GB", "15490000", laptop, 12);
-        createProduct("Tai nghe Bluetooth Sony WH-CH520", "Pin 50 giờ, kết nối đa điểm", "1290000", accessory, 0);
-        log.info("Đã tạo dữ liệu mẫu: 3 danh mục, 4 sản phẩm");
+        // 1. Khởi tạo / Lấy các danh mục chính
+        Category phone = getOrCreateCategory("Điện thoại", "Điện thoại thông minh, máy tính bảng hàng đầu");
+        Category laptop = getOrCreateCategory("Laptop", "Máy tính xách tay văn phòng, đồ họa, gaming");
+        Category accessory = getOrCreateCategory("Phụ kiện", "Tai nghe, cáp sạc, bàn phím, chuột và thiết bị ngoại vi");
+        Category menFashion = getOrCreateCategory("Thời trang Nam", "Trang phục nam hiện đại, phong cách lịch lãm và năng động");
+        Category womenFashion = getOrCreateCategory("Thời trang Nữ", "Váy đầm, áo kiểu thời thượng tôn vinh nét đẹp phái nữ");
+        Category watchJewelry = getOrCreateCategory("Đồng hồ & Trang sức", "Đồng hồ cao cấp, smartwatch và trang sức tinh tế");
+        Category beautyCosmetics = getOrCreateCategory("Mỹ phẩm & Làm đẹp", "Chăm sóc da mặt chuyên sâu, mỹ phẩm trang điểm và nước hoa chính hãng");
+        Category homeAppliances = getOrCreateCategory("Thiết bị điện gia dụng", "Nồi chiên, máy hút bụi, máy lọc không khí và đồ gia dụng thông minh");
+        Category homeLiving = getOrCreateCategory("Nhà cửa & Đời sống", "Nội thất, chăn ga gối đệm, bình giữ nhiệt và đồ dùng gia đình tiện ích");
+        Category groceries = getOrCreateCategory("Bách hóa & Thực phẩm", "Cà phê sạch, trà thơm, bánh kẹo và nông sản dinh dưỡng đặc sản");
+        Category sportsOutdoor = getOrCreateCategory("Thể thao & Dã ngoại", "Dụng cụ thể hình, yoga, giày thể thao và lều trại dã ngoại");
+        Category motherBaby = getOrCreateCategory("Mẹ & Bé", "Sữa bột dinh dưỡng, tã bỉm siêu thấm, xe đẩy và đồ chơi trẻ em");
+        Category booksStationery = getOrCreateCategory("Sách & Văn phòng phẩm", "Sách bán chạy, máy đọc sách điện tử, bút ký và văn phòng phẩm cao cấp");
+
+        // 2. Khởi tạo sản phẩm cho từng danh mục
+        // --- 1. Điện thoại ---
+        createProductIfNotExists(
+                "Điện thoại Galaxy A55",
+                "Màn hình 6.6 inch Super AMOLED 120Hz, RAM 8GB, bộ nhớ 128GB, camera 50MP chống rung OIS sắc nét, chuẩn kháng nước IP67.",
+                "9990000",
+                phone,
+                25,
+                List.of(
+                        "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "iPhone 15 128GB",
+                "Màn hình Super Retina XDR với Dynamic Island thông minh, chip A16 Bionic mạnh mẽ, camera chính 48MP bắt trọn chi tiết, cổng kết nối Type-C tiện lợi.",
+                "19990000",
+                phone,
+                15,
+                List.of(
+                        "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "iPhone 15 Pro Max 256GB Titan Tự Nhiên",
+                "Thiết kế khung viền Titan chuẩn hàng không vũ trụ siêu bền nhẹ, nút tác vụ Action Button linh hoạt, vi xử lý Apple A17 Pro cực đỉnh, zoom quang học 5x.",
+                "29490000",
+                phone,
+                18,
+                List.of(
+                        "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
+                        "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Samsung Galaxy S24 Ultra 512GB AI Phone",
+                "Quyền năng Galaxy AI tiên phong, khung viền Titanium sang trọng, màn hình phẳng 6.8 inch Dynamic AMOLED 2X sáng rực rỡ, tích hợp bút S-Pen, camera 200MP.",
+                "31990000",
+                phone,
+                12,
+                List.of(
+                        "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Xiaomi 14 Ultra 5G Leica Camera",
+                "Tuyệt tác nhiếp ảnh với cụm 4 camera Leica Summilux cảm biến 1 inch, chip Snapdragon 8 Gen 3 siêu tốc độ, màn hình Liquid Display 2K 120Hz mượt mà.",
+                "26490000",
+                phone,
+                8,
+                List.of(
+                        "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "iPad Air 11 inch M2 Wi-Fi 128GB",
+                "Sức mạnh vô song từ chip Apple M2 với Neural Engine tiên tiến, màn hình Liquid Retina chống lóa, tương thích Apple Pencil Pro thế hệ mới nhất.",
+                "16890000",
+                phone,
+                20,
+                List.of(
+                        "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 2. Laptop ---
+        createProductIfNotExists(
+                "Laptop Dell Inspiron 15",
+                "Core i5 thế hệ mới, RAM 16GB, SSD 512GB PCIe NVMe tốc độ cao, màn hình 15.6 inch FHD chống lóa, hoàn hảo cho công việc văn phòng và học tập.",
+                "15490000",
+                laptop,
+                14,
+                List.of(
+                        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "MacBook Pro 14 inch M3 Pro 18GB/512GB Space Black",
+                "Chip Apple M3 Pro siêu khủng xử lý render 3D và dựng phim 8K mượt mà, màn hình Liquid Retina XDR 120Hz chuẩn rạp chiếu phim, thời lượng pin đến 18 giờ.",
+                "48990000",
+                laptop,
+                10,
+                List.of(
+                        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Laptop ASUS ROG Zephyrus G16 OLED Gaming",
+                "Cỗ máy gaming đỉnh cao siêu mỏng nhẹ, CPU Intel Core Ultra 9 185H, GPU NVIDIA RTX 4070 8GB GDDR6, màn hình OLED ROG Nebula 2.5K 240Hz 0.2ms.",
+                "55990000",
+                laptop,
+                6,
+                List.of(
+                        "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Laptop Dell XPS 13 Plus 9320 Core i7",
+                "Tuyệt tác thiết kế tương lai với hàng phím chức năng cảm ứng điện dung, touchpad kính tàng hình, màn hình cảm ứng 3.5K OLED rực rỡ, RAM 16GB, SSD 512GB.",
+                "37500000",
+                laptop,
+                9,
+                List.of(
+                        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Laptop Lenovo ThinkPad X1 Carbon Gen 11",
+                "Biểu tượng laptop doanh nhân bền bỉ với khung sợi carbon chuẩn quân đội MIL-STD-810H, trọng lượng chỉ 1.12kg, bàn phím gõ êm ái số 1 thế giới.",
+                "39990000",
+                laptop,
+                12,
+                List.of(
+                        "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 3. Phụ kiện ---
+        createProductIfNotExists(
+                "Tai nghe Bluetooth Sony WH-CH520",
+                "Thời lượng pin lên đến 50 giờ bền bỉ, công nghệ nâng cấp âm thanh DSEE, kết nối Bluetooth đa điểm tiện lợi chuyển đổi giữa điện thoại và máy tính.",
+                "1290000",
+                accessory,
+                30,
+                List.of(
+                        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Tai nghe Chống Ồn Cao Cấp Sony WH-1000XM5",
+                "Chống ồn chủ động đỉnh cao với 2 chip xử lý V1 và QN1, màng loa 30mm mạ carbon cho âm thanh Hi-Res Audio tinh khiết, cuộc gọi trong trẻo với 8 micro AI.",
+                "7990000",
+                accessory,
+                22,
+                List.of(
+                        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Chuột không dây công thái học Logitech MX Master 3S",
+                "Cảm biến Darkfield 8000 DPI lướt mượt trên mọi bề mặt kể cả kính, nút bấm Silent Clicks êm ái giảm 90% tiếng ồn, cuộn siêu tốc MagSpeed 1000 dòng/giây.",
+                "2290000",
+                accessory,
+                35,
+                List.of(
+                        "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bàn phím cơ không dây Logitech MX Mechanical",
+                "Switches cơ học Low-Profile Tactile Quiet phản hồi chuẩn xác êm nhẹ, đèn nền thông minh tự sáng khi bàn tay lại gần, kết nối Bluetooth & Logi Bolt 3 thiết bị.",
+                "3490000",
+                accessory,
+                16,
+                List.of(
+                        "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Củ sạc nhanh Anker GaNPrime 65W 3 Cổng",
+                "Công nghệ sạc Gallium Nitride thế hệ mới nhỏ gọn hơn 53%, công suất tối đa 65W sạc nhanh cùng lúc cho Laptop, iPad và iPhone, kiểm soát nhiệt độ ActiveShield 2.0.",
+                "890000",
+                accessory,
+                50,
+                List.of(
+                        "https://images.unsplash.com/photo-1622445262464-84b1456045b6?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 4. Thời trang Nam ---
+        createProductIfNotExists(
+                "Áo polo nam thể thao Coolmate ProMax",
+                "Chất liệu sợi Quick-Dry thoát ẩm vượt trội, công nghệ dệt tổ ong thoáng mát, cổ áo định hình không bai dão sau nhiều lần giặt, chuẩn form tôn dáng nam tính.",
+                "239000",
+                menFashion,
+                80,
+                List.of(
+                        "https://images.unsplash.com/photo-1581655353564-df123a1eb820?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Quần Jean nam ống suông co giãn Levi's 511",
+                "Dáng slim fit trẻ trung vừa vặn, chất liệu denim pha sợi elastane co giãn thoải mái cử động cả ngày, wash màu thời thượng dễ phối đồ.",
+                "1450000",
+                menFashion,
+                40,
+                List.of(
+                        "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Áo sơ mi nam Oxford Routine tay dài",
+                "Vải dệt Oxford 100% cotton dày dặn đứng form, giữ nếp phẳng phiu suốt ngày làm việc, phù hợp đi làm công sở lẫn dạo phố cuối tuần.",
+                "490000",
+                menFashion,
+                45,
+                List.of(
+                        "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Áo khoác gió nam chống nước The North Face",
+                "Công nghệ vải DryVent chống gió chống thấm nước tuyệt đối, lớp lót lưới thoáng khí không bí bách, mũ trùm đầu gập gọn tiện lợi, trọng lượng siêu nhẹ.",
+                "1890000",
+                menFashion,
+                25,
+                List.of(
+                        "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 5. Thời trang Nữ ---
+        createProductIfNotExists(
+                "Đầm hoa nhí voan tơ dáng xòe tiểu thư",
+                "Thiết kế cổ vuông tôn xương quai xanh quyến rũ, tay phồng bồng bềnh, chất liệu voan tơ cao cấp lót lụa mềm mại thoáng mát, tôn dáng nữ tính nhẹ nhàng.",
+                "580000",
+                womenFashion,
+                30,
+                List.of(
+                        "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Áo sơ mi lụa tơ tằm cổ nơ quý phái",
+                "Chất lụa tơ tằm mềm mịn rũ tự nhiên, ánh satin sang trọng, chi tiết nơ cổ thanh lịch tạo điểm nhấn duyên dáng cho quý cô công sở hiện đại.",
+                "420000",
+                womenFashion,
+                38,
+                List.of(
+                        "https://images.unsplash.com/photo-1589810635657-232948472d98?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Chân váy chữ A xếp ly phong cách Hàn Quốc",
+                "Chân váy cạp cao hack dáng che khuyết điểm, vải tuyết mưa cao cấp không nhăn xù, khóa kéo giọt nước tinh tế phía sau, dễ phối cùng áo sơ mi hay áo thun.",
+                "320000",
+                womenFashion,
+                55,
+                List.of(
+                        "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Túi xách nữ da thật quai chéo Crossbody",
+                "Da bò vân hạt cao cấp chống trầy xước, khóa kim loại mạ vàng sang trọng, các ngăn chứa tiện lợi vừa điện thoại, ví tiền và mỹ phẩm.",
+                "950000",
+                womenFashion,
+                18,
+                List.of(
+                        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 6. Đồng hồ & Trang sức ---
+        createProductIfNotExists(
+                "Đồng hồ thông minh Apple Watch Ultra 2",
+                "Khung viền titan 49mm chuẩn hàng không vũ trụ, màn hình sáng nhất 3000 nits, định vị GPS kép chuẩn xác cao, thời lượng pin đến 72 giờ ở chế độ tiết kiệm.",
+                "20490000",
+                watchJewelry,
+                14,
+                List.of(
+                        "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Đồng hồ nam dây kim loại Casio Edifice Chronograph",
+                "Mặt số đa tầng thể thao cá tính, kính sapphire chống phản quang chống trầy, khả năng chịu nước 100m, nạp pin bằng năng lượng ánh sáng Tough Solar.",
+                "4850000",
+                watchJewelry,
+                22,
+                List.of(
+                        "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Đồng hồ thể thao Garmin Fenix 7 Pro Sapphire Solar",
+                "Thấu kính sạc năng lượng mặt trời Power Sapphire, tích hợp đèn pin LED siêu sáng, bản đồ địa hình đa lục địa và tính năng theo dõi sức khỏe chuyên sâu.",
+                "19490000",
+                watchJewelry,
+                8,
+                List.of(
+                        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Dây chuyền bạc Ý đính pha lê Swarovski",
+                "Bạc Ý 925 xi mạ bạch kim sáng bóng không xỉn màu, mặt dây nạm pha lê Swarovski lấp lánh phản chiếu ánh sáng sắc sảo, hộp quà tặng cao cấp sang trọng.",
+                "850000",
+                watchJewelry,
+                40,
+                List.of(
+                        "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 7. Mỹ phẩm & Làm đẹp ---
+        createProductIfNotExists(
+                "Serum phục hồi da La Roche-Posay Hyalu B5 30ml",
+                "Phức hợp 2 loại Axit Hyaluronic nguyên chất kết hợp Vitamin B5 và Madecassoside giúp tái tạo phục hồi hàng rào bảo vệ da, cấp ẩm căng bóng tức thì.",
+                "895000",
+                beautyCosmetics,
+                65,
+                List.of(
+                        "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Kem chống nắng Anessa Perfect UV Sunscreen 60ml",
+                "Công nghệ Auto Booster chống nước, mồ hôi và độ ẩm vượt trội, chỉ số SPF50+ PA++++ bảo vệ da toàn diện, kết cấu sữa mỏng nhẹ kiềm dầu cả ngày.",
+                "585000",
+                beautyCosmetics,
+                90,
+                List.of(
+                        "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Sữa rửa mặt Cerave Foaming Facial Cleanser 473ml",
+                "Công thức chứa 3 Ceramides thiết yếu, Niacinamide và Hyaluronic Acid giúp làm sạch sâu bã nhờn mà không làm tổn hại màng ẩm tự nhiên của da.",
+                "380000",
+                beautyCosmetics,
+                70,
+                List.of(
+                        "https://images.unsplash.com/photo-1556228722-d0b7194f1011?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Nước hoa nam Chanel Bleu de Chanel EDP 100ml",
+                "Hương thơm gỗ thơm nồng nàn quyến rũ, mở đầu tươi mát với cam bergamot và bưởi, hòa quyện tuyết tùng và hương trầm nam tính lịch lãm cuốn hút.",
+                "3750000",
+                beautyCosmetics,
+                15,
+                List.of(
+                        "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 8. Thiết bị điện gia dụng ---
+        createProductIfNotExists(
+                "Nồi chiên không dầu Philips XXL HD9650 7.3L",
+                "Công nghệ Twin TurboStar loại bỏ đến 90% dầu mỡ trong thực phẩm, công suất mạnh mẽ 2225W, dung tích khổng lồ chiên trọn con gà nguyên con dễ dàng.",
+                "5990000",
+                homeAppliances,
+                18,
+                List.of(
+                        "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Nồi cơm điện cao tần Toshiba 1.8L RC-18IX1PV",
+                "Công nghệ nhiệt cảm ứng từ IH gia nhiệt tuần hoàn 360 độ, lòng nồi hợp kim nhôm tráng men chống dính dày 3mm, hạt cơm chín đều dẻo thơm ngọt ngào.",
+                "2490000",
+                homeAppliances,
+                24,
+                List.of(
+                        "https://images.unsplash.com/photo-1544233726-9f1d2b27be8b?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Máy lọc không khí Xiaomi Smart Air Purifier 4 Pro",
+                "Bộ lọc HEPA 3 lớp hiệu suất cao lọc sạch 99.97% bụi mịn PM2.5 và chất gây dị ứng, diện tích làm sạch đến 60m2, màn hình OLED cảm ứng thông minh.",
+                "4490000",
+                homeAppliances,
+                15,
+                List.of(
+                        "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Máy hút bụi cầm tay không dây Dyson V12 Detect Slim",
+                "Động cơ Dyson Hyperdymium quay 125.000 vòng/phút, đầu hút laser phát hiện bụi bẩn vô hình siêu nhỏ, cảm biến piezo đếm và phân loại hạt bụi tự động.",
+                "16990000",
+                homeAppliances,
+                7,
+                List.of(
+                        "https://images.unsplash.com/photo-1558317374-067fb5f30001?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 9. Nhà cửa & Đời sống ---
+        createProductIfNotExists(
+                "Ghế công thái học Ergonomic Chair Sihoo M57",
+                "Lưới thoáng khí toàn phần cao cấp bền bỉ không chùng, đệm đỡ thắt lưng tự điều chỉnh linh hoạt bảo vệ cột sống, tựa tay 3D đa hướng êm ái.",
+                "3650000",
+                homeLiving,
+                22,
+                List.of(
+                        "https://images.unsplash.com/photo-1580481077195-c22ae2b30928?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bộ ga gối cotton lụa Hàn Quốc 4 món",
+                "Chất liệu cotton lụa dệt mật độ sợi cao mềm mát dịu da, họa tiết dệt trang nhã hiện đại, kháng khuẩn chống nhăn và chống xù lông khi giặt máy.",
+                "780000",
+                homeLiving,
+                35,
+                List.of(
+                        "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bình giữ nhiệt Lock&Lock Feather Light 500ml",
+                "Thép không gỉ Inox 304 tiêu chuẩn y tế giữ nóng đến 8 giờ và giữ lạnh đến 24 giờ, trọng lượng siêu nhẹ chỉ 200g, nắp vặn silicon kín khí chống tràn.",
+                "329000",
+                homeLiving,
+                60,
+                List.of(
+                        "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Đèn bàn học chống cận LED Panasonic 12W",
+                "Ánh sáng tỏa đều không nhấp nháy đạt chuẩn quang học an toàn cho mắt RG0, chỉ số hoàn màu CRI Ra>90 trung thực, cần đèn uốn gập xoay 360 độ linh hoạt.",
+                "650000",
+                homeLiving,
+                40,
+                List.of(
+                        "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 10. Bách hóa & Thực phẩm ---
+        createProductIfNotExists(
+                "Cà phê hạt rang Arabica & Robusta Đắk Lắk 500g",
+                "Hạt cà phê hái chín 100% tuyển chọn từ vùng cao nguyên Đắk Lắk, rang mộc theo tiêu chuẩn Specialty, hương thơm đậm đà quyến rũ hậu vị ngọt sâu khó quên.",
+                "165000",
+                groceries,
+                100,
+                List.of(
+                        "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Hạt dinh dưỡng Granola mật ong sấy giòn 500g",
+                "Hỗn hợp yến mạch nguyên cám cùng hạnh nhân, hạt điều, óc chó và nho khô sấy giòn tẩm mật ong hoa rừng tự nhiên, giàu protein thực vật và chất xơ.",
+                "145000",
+                groceries,
+                85,
+                List.of(
+                        "https://images.unsplash.com/photo-1514733670139-4d87a1941d55?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Trà Oolong Lâm Đồng hộp thiếc cao cấp 200g",
+                "Những búp trà non thu hái lúc sáng sớm trên đồi chè Cầu Đất, chế biến bán lên men chuẩn hương hoa lan thoang thoảng, nước trà vàng óng thanh tao ngọt lành.",
+                "220000",
+                groceries,
+                45,
+                List.of(
+                        "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bánh quy bơ truyền thống Danisa hoàng gia 908g",
+                "Bánh quy bơ Đan Mạch lừng danh với công thức hoàng gia, hương bơ thơm ngậy giòn tan hòa quyện cùng hạt đường ngọt ngào, hộp thiếc sang trọng làm quà biếu ý nghĩa.",
+                "245000",
+                groceries,
+                60,
+                List.of(
+                        "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 11. Thể thao & Dã ngoại ---
+        createProductIfNotExists(
+                "Thảm tập Yoga TPE 2 lớp định tuyến 8mm",
+                "Vật liệu TPE thân thiện môi trường đàn hồi cao, đường kẻ định tuyến laser chuẩn xác giúp căn chỉnh tư thế, bề mặt vân chống trượt bám dính tốt.",
+                "299000",
+                sportsOutdoor,
+                50,
+                List.of(
+                        "https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Giày chạy bộ nam Nike Air Zoom Pegasus 40",
+                "Bộ đôi túi khí Zoom Air ở mũi và gót chân cho độ bật nảy tối ưu, thân giày vải lưới engineered mesh thoáng khí ôm vừa vặn bàn chân suốt cự ly chạy dài.",
+                "3290000",
+                sportsOutdoor,
+                26,
+                List.of(
+                        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Lều dã ngoại tự bung chống mưa 4 người Naturehike",
+                "Cơ chế khớp bật thủy lực dựng lều chỉ trong 3 giây, vải Polyester 210T phủ lớp chống thấm PU 3000mm kèm chỉ số chống nắng UPF 50+, thông thoáng chống côn trùng.",
+                "1650000",
+                sportsOutdoor,
+                15,
+                List.of(
+                        "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Vợt cầu lông Yonex Nanoflare 800 Play",
+                "Khung vợt Isometric mở rộng vùng điểm ngọt, công nghệ Sonic Flare System trợ lực đánh cầu siêu thanh thoát, trọng lượng 4U thân vợt dẻo dễ thuần.",
+                "1250000",
+                sportsOutdoor,
+                20,
+                List.of(
+                        "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 12. Mẹ & Bé ---
+        createProductIfNotExists(
+                "Sữa bột Meiji số 9 nội địa Nhật Bản 800g (1-3 tuổi)",
+                "Bổ sung đầy đủ sắt, canxi, DHA, ARA và 5 loại nucleotides hỗ trợ hệ tiêu hóa khỏe mạnh, tăng sức đề kháng và phát triển chiều cao trí não toàn diện.",
+                "495000",
+                motherBaby,
+                55,
+                List.of(
+                        "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Tã dán Bobby Lõi Nén Khí 3mm Mega Jumbo size L 68 miếng",
+                "Lõi nén ma thuật 3mm siêu mỏng thoáng, hàng triệu lỗ thoát khí li ti thấm hút tức thì chống tràn, bổ sung tinh chất trà xanh ngừa hăm tã hiệu quả.",
+                "349000",
+                motherBaby,
+                70,
+                List.of(
+                        "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Xe đẩy em bé gấp gọn hai chiều cao cấp",
+                "Khung hợp kim nhôm siêu nhẹ chỉ 5.8kg, đảo chiều tay đẩy linh hoạt, mái che vòm chống tia UV đa nấc, bánh xe giảm xóc lò xo xoắn êm ái.",
+                "1850000",
+                motherBaby,
+                12,
+                List.of(
+                        "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bộ đồ chơi xếp hình sáng tạo LEGO Classic 900 chi tiết",
+                "Hộp gạch xây dựng đa sắc màu kích thích trí tưởng tượng vô hạn, nhựa ABS an toàn tuyệt đối cho trẻ nhỏ, đạt tiêu chuẩn chất lượng châu Âu.",
+                "980000",
+                motherBaby,
+                30,
+                List.of(
+                        "https://images.unsplash.com/photo-1585366119957-e9730b6d0f60?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // --- 13. Sách & Văn phòng phẩm ---
+        createProductIfNotExists(
+                "Bộ sách Tâm Lý Học Về Tiền & Tư Duy Nhanh Chậm",
+                "Combo 2 cuốn sách kinh điển về hành vi tài chính và tư duy con người của Morgan Housel và Daniel Kahneman, bìa cứng in dập nổi trang trọng.",
+                "320000",
+                booksStationery,
+                60,
+                List.of(
+                        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Máy đọc sách Kindle Paperwhite Gen 11 16GB",
+                "Màn hình E-ink 6.8 inch 300 ppi sắc nét như trang giấy in thật, đèn nền vàng ấm chống mỏi mắt ban đêm, thời lượng pin đến 10 tuần, chuẩn kháng nước IPX8.",
+                "3850000",
+                booksStationery,
+                18,
+                List.of(
+                        "https://images.unsplash.com/photo-1592496001020-d31bd830651f?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Bút ký kim loại cao cấp Parker Sonnet mực gel",
+                "Thân bút phủ sơn mài đen bóng viền mạ vàng 23K sang trọng, ngòi bi trơn lướt êm ái chữ ký dứt khoát, đi kèm hộp đựng nhung quà biếu lịch sự.",
+                "1250000",
+                booksStationery,
+                25,
+                List.of(
+                        "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        createProductIfNotExists(
+                "Balo học sinh sinh viên chống gù chống nước chống trộm",
+                "Vải Oxford cao cấp trượt nước, ngăn chống sốc chuyên dụng đựng laptop 15.6 inch, cổng sạc USB tích hợp bên hông, quai đeo đệm thoáng khí tổ ong.",
+                "450000",
+                booksStationery,
+                45,
+                List.of(
+                        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80"
+                )
+        );
+
+        // 3. Khởi tạo Flash Sale nếu chưa có
+        if (flashSaleRepository.count() == 0) {
+            FlashSale flashSale = FlashSale.builder()
+                    .name("Đại Tiệc Mua Sắm Toàn Sàn 2026")
+                    .description("Ưu đãi giảm giá 15% cho toàn bộ sản phẩm trên sàn nhân dịp khai trương mùa lễ hội")
+                    .scope(FlashSaleScope.ALL)
+                    .discountType(FlashSaleDiscountType.PERCENTAGE)
+                    .discountValue(new BigDecimal("15.00"))
+                    .startAt(LocalDateTime.now().minusDays(1))
+                    .endAt(LocalDateTime.now().plusDays(14))
+                    .isActive(true)
+                    .build();
+            flashSaleRepository.save(flashSale);
+            log.info("Đã tạo Flash Sale mẫu: {}", flashSale.getName());
+        }
+
+        log.info("Hoàn tất nạp dữ liệu mẫu: {} danh mục, {} sản phẩm hiện có trong cơ sở dữ liệu.",
+                categoryRepository.count(), productRepository.count());
     }
 
-    private void createProduct(String name, String description, String price, Category category, int quantity) {
-        Product product = productRepository.save(Product.builder()
+    private Category getOrCreateCategory(String name, String description) {
+        return categoryRepository.findFirstByNameIgnoreCase(name)
+                .orElseGet(() -> categoryRepository.save(Category.builder()
+                        .name(name)
+                        .description(description)
+                        .build()));
+    }
+
+    private void createProductIfNotExists(
+            String name,
+            String description,
+            String price,
+            Category category,
+            int quantity,
+            List<String> imageUrls
+    ) {
+        // Kiểm tra xem sản phẩm đã có trong cơ sở dữ liệu chưa
+        var existingOpt = productRepository.findFirstByName(name);
+        if (existingOpt.isPresent()) {
+            Product existing = existingOpt.get();
+            // Nếu sản phẩm đã tồn tại nhưng chưa có ảnh, bổ sung ảnh mẫu để hiển thị đẹp mắt
+            if (existing.getProductImages().isEmpty() && imageUrls != null && !imageUrls.isEmpty()) {
+                for (String url : imageUrls) {
+                    existing.getProductImages().add(ProductImage.builder()
+                            .product(existing)
+                            .url(url)
+                            .build());
+                }
+                productRepository.save(existing);
+                log.info("Đã bổ sung ảnh mẫu cho sản phẩm đã có: {}", name);
+            }
+            return;
+        }
+
+        // Tạo mới sản phẩm kèm theo danh sách ảnh
+        Product product = Product.builder()
                 .name(name)
                 .description(description)
                 .price(new BigDecimal(price))
                 .category(category)
-                .build());
+                .build();
+
+        if (imageUrls != null) {
+            for (String url : imageUrls) {
+                product.getProductImages().add(ProductImage.builder()
+                        .product(product)
+                        .url(url)
+                        .build());
+            }
+        }
+
+        Product savedProduct = productRepository.save(product);
+
+        // Khởi tạo tồn kho tương ứng
         inventoryRepository.save(Inventory.builder()
-                .product(product)
+                .product(savedProduct)
                 .quantity(quantity)
                 .reservedQuantity(0)
                 .build());
+
+        log.info("Đã thêm sản phẩm mẫu: [{}] - Danh mục: [{}] - Giá: {} VNĐ - Tồn kho: {}",
+                savedProduct.getName(), category.getName(), price, quantity);
     }
 }

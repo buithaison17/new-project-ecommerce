@@ -15,12 +15,22 @@ import { useCartStore } from "../store/cartStore";
 import { catalogService } from "./catalogService";
 import type { ProductSummary } from "../types/catalog";
 import { saveOrderStatusOverride, syncOrderStatus } from "./orderStatusSync";
+import { paymentService } from "./paymentService";
+import type { CreateCheckoutResponse } from "../types/order";
 import { formatProductImageUrl } from "../lib/image";
 
 export const ORDER_ITEMS_CACHE_KEY = "order_items_cache";
 
-export function getProductThumbnail(name?: string, categoryName?: string, rawUrl?: string | null): string {
-    if (rawUrl && typeof rawUrl === "string" && !rawUrl.includes("placehold.co")) {
+export function getProductThumbnail(
+    name?: string,
+    categoryName?: string,
+    rawUrl?: string | null,
+): string {
+    if (
+        rawUrl &&
+        typeof rawUrl === "string" &&
+        !rawUrl.includes("placehold.co")
+    ) {
         if (rawUrl.startsWith("/uploads/")) {
             return formatProductImageUrl(rawUrl);
         }
@@ -29,16 +39,35 @@ export function getProductThumbnail(name?: string, categoryName?: string, rawUrl
         }
     }
     const lower = `${name || ""} ${categoryName || ""}`.toLowerCase();
-    if (lower.includes("galaxy") || lower.includes("samsung") || lower.includes("a55")) {
+    if (
+        lower.includes("galaxy") ||
+        lower.includes("samsung") ||
+        lower.includes("a55")
+    ) {
         return "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=400&auto=format&fit=crop&q=80";
     }
-    if (lower.includes("iphone") || lower.includes("apple") || lower.includes("thoại")) {
+    if (
+        lower.includes("iphone") ||
+        lower.includes("apple") ||
+        lower.includes("thoại")
+    ) {
         return "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&auto=format&fit=crop&q=80";
     }
-    if (lower.includes("laptop") || lower.includes("dell") || lower.includes("inspiron") || lower.includes("máy tính")) {
+    if (
+        lower.includes("laptop") ||
+        lower.includes("dell") ||
+        lower.includes("inspiron") ||
+        lower.includes("máy tính")
+    ) {
         return "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&auto=format&fit=crop&q=80";
     }
-    if (lower.includes("tai nghe") || lower.includes("sony") || lower.includes("bluetooth") || lower.includes("headphone") || lower.includes("wh-ch520")) {
+    if (
+        lower.includes("tai nghe") ||
+        lower.includes("sony") ||
+        lower.includes("bluetooth") ||
+        lower.includes("headphone") ||
+        lower.includes("wh-ch520")
+    ) {
         return "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&auto=format&fit=crop&q=80";
     }
     return "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80";
@@ -71,10 +100,12 @@ export const orderService = {
             price: number;
             thumbnailUrl?: string | null;
             quantity: number;
-        }[]
+        }[],
     ) {
         try {
-            const cache = JSON.parse(localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}");
+            const cache = JSON.parse(
+                localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}",
+            );
             cache[orderId] = items;
             localStorage.setItem(ORDER_ITEMS_CACHE_KEY, JSON.stringify(cache));
         } catch (e) {
@@ -85,7 +116,9 @@ export const orderService = {
     // Lấy thông tin sản phẩm đơn hàng từ cache cục bộ
     getOrderItemsFromCache(orderId: number): OrderItemResponse[] {
         try {
-            const cache = JSON.parse(localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}");
+            const cache = JSON.parse(
+                localStorage.getItem(ORDER_ITEMS_CACHE_KEY) || "{}",
+            );
             const items = cache[orderId] || cache[String(orderId)];
             if (Array.isArray(items) && items.length > 0) {
                 return items.map((it: any, index: number) => ({
@@ -94,7 +127,11 @@ export const orderService = {
                         id: it.productId,
                         name: it.name,
                         price: it.price,
-                        thumbnailUrl: getProductThumbnail(it.name, undefined, it.thumbnailUrl),
+                        thumbnailUrl: getProductThumbnail(
+                            it.name,
+                            undefined,
+                            it.thumbnailUrl,
+                        ),
                     },
                     quantity: it.quantity,
                     unitPrice: it.price,
@@ -109,11 +146,16 @@ export const orderService = {
 
     // Lấy danh sách địa chỉ nhận hàng của người dùng (tự động loại bỏ các địa chỉ đã xóa)
     async getDeliveries(currentPage = 1, pageSize = 20) {
-        const response = await api.get<ApiDataResponse<UserDeliveryResponse[]>>("/users/deliveries", {
-            params: { currentPage, pageSize },
-        });
+        const response = await api.get<ApiDataResponse<UserDeliveryResponse[]>>(
+            "/users/deliveries",
+            {
+                params: { currentPage, pageSize },
+            },
+        );
         const rawList = response.data.data || [];
-        const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_deliveries") || "[]");
+        const deletedKeys: string[] = JSON.parse(
+            localStorage.getItem("deleted_deliveries") || "[]",
+        );
 
         const filtered = rawList.filter((item) => {
             const key = `${item.address.trim()}_${item.phoneNumber.trim()}`;
@@ -141,7 +183,9 @@ export const orderService = {
 
         // Phục hồi lại nếu trước đó địa chỉ này từng bị đưa vào danh sách xóa cục bộ
         const key = `${cleanAddress}_${cleanPhone}`;
-        const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_deliveries") || "[]");
+        const deletedKeys: string[] = JSON.parse(
+            localStorage.getItem("deleted_deliveries") || "[]",
+        );
         if (deletedKeys.includes(key)) {
             const updated = deletedKeys.filter((k) => k !== key);
             localStorage.setItem("deleted_deliveries", JSON.stringify(updated));
@@ -152,8 +196,9 @@ export const orderService = {
             const existing = await orderService.getDeliveries(1, 50);
             const found = existing.find(
                 (d) =>
-                    d.address.trim().toLowerCase() === cleanAddress.toLowerCase() &&
-                    d.phoneNumber.trim() === cleanPhone
+                    d.address.trim().toLowerCase() ===
+                        cleanAddress.toLowerCase() &&
+                    d.phoneNumber.trim() === cleanPhone,
             );
             if (found) {
                 return found;
@@ -162,16 +207,22 @@ export const orderService = {
             // bỏ qua nếu lỗi lấy danh sách
         }
 
-        const response = await api.post<ApiDataResponse<UserDeliveryResponse>>("/users/deliveries", {
-            address: cleanAddress,
-            phoneNumber: cleanPhone,
-        });
+        const response = await api.post<ApiDataResponse<UserDeliveryResponse>>(
+            "/users/deliveries",
+            {
+                address: cleanAddress,
+                phoneNumber: cleanPhone,
+            },
+        );
         return response.data.data;
     },
 
     // Cập nhật địa chỉ nhận hàng
     async updateDelivery(id: number, data: UserDeliveryRequest) {
-        const response = await api.patch<ApiDataResponse<UserDeliveryResponse>>(`/users/deliveries/${id}`, data);
+        const response = await api.patch<ApiDataResponse<UserDeliveryResponse>>(
+            `/users/deliveries/${id}`,
+            data,
+        );
         return response.data.data;
     },
 
@@ -181,25 +232,37 @@ export const orderService = {
     },
 
     // Xóa địa chỉ nhận hàng thông minh: gọi API backend và đồng bộ trạng thái Frontend
-    async deleteDeliveryAddress(params: { id?: number; address: string; phoneNumber: string }) {
+    async deleteDeliveryAddress(params: {
+        id?: number;
+        address: string;
+        phoneNumber: string;
+    }) {
         const { id, address, phoneNumber } = params;
 
         // Lưu vào danh sách đã xóa để loại bỏ ngay lập tức ở giao diện
         const key = `${address.trim()}_${phoneNumber.trim()}`;
-        const deletedKeys: string[] = JSON.parse(localStorage.getItem("deleted_deliveries") || "[]");
+        const deletedKeys: string[] = JSON.parse(
+            localStorage.getItem("deleted_deliveries") || "[]",
+        );
         if (!deletedKeys.includes(key)) {
             deletedKeys.push(key);
-            localStorage.setItem("deleted_deliveries", JSON.stringify(deletedKeys));
+            localStorage.setItem(
+                "deleted_deliveries",
+                JSON.stringify(deletedKeys),
+            );
         }
 
         // Xóa khỏi cache delivery_id_map nếu có
         const normKey = `${address.trim().toLowerCase()}_${phoneNumber.trim()}`;
         try {
             const deliveryMap: Record<string, number> = JSON.parse(
-                localStorage.getItem("delivery_id_map") || "{}"
+                localStorage.getItem("delivery_id_map") || "{}",
             );
             delete deliveryMap[normKey];
-            localStorage.setItem("delivery_id_map", JSON.stringify(deliveryMap));
+            localStorage.setItem(
+                "delivery_id_map",
+                JSON.stringify(deliveryMap),
+            );
         } catch {
             // ignore
         }
@@ -217,7 +280,9 @@ export const orderService = {
         // Nếu chưa có ID, thử các candidate IDs từ cache hoặc danh sách phổ biến
         const cachedIdStr = localStorage.getItem("last_delivery_id");
         const cachedId = cachedIdStr ? parseInt(cachedIdStr, 10) : null;
-        const candidateIds = [cachedId, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((x): x is number => !!x);
+        const candidateIds = [cachedId, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter(
+            (x): x is number => !!x,
+        );
 
         for (const candId of candidateIds) {
             try {
@@ -231,7 +296,10 @@ export const orderService = {
 
     // Kết nối với backend API tạo đơn hàng mới
     async createOrder(request: CreateOrderRequest) {
-        const response = await api.post<ApiDataResponse<OrderResponse>>("/orders", request);
+        const response = await api.post<ApiDataResponse<OrderResponse>>(
+            "/orders",
+            request,
+        );
         return response.data.data;
     },
 
@@ -241,14 +309,18 @@ export const orderService = {
         let lastError: any = null;
 
         try {
-            const response = await api.patch<ApiDataResponse<OrderResponse>>(`/orders/${orderId}/cancel`);
+            const response = await api.patch<ApiDataResponse<OrderResponse>>(
+                `/orders/${orderId}/cancel`,
+            );
             if (response.data?.data) {
                 cancelledOrder = response.data.data;
             }
         } catch (err: any) {
             lastError = err;
             try {
-                const response = await api.patch<ApiDataResponse<OrderResponse>>(`/admin/orders/${orderId}/status`, { status: "CANCELLED" });
+                const response = await api.patch<
+                    ApiDataResponse<OrderResponse>
+                >(`/admin/orders/${orderId}/status`, { status: "CANCELLED" });
                 if (response.data?.data) {
                     cancelledOrder = response.data.data;
                     lastError = null;
@@ -259,16 +331,26 @@ export const orderService = {
         }
 
         if (lastError && !cancelledOrder) {
-            const message = lastError.response?.data?.message || lastError.message || "Không thể hủy đơn hàng";
+            const message =
+                lastError.response?.data?.message ||
+                lastError.message ||
+                "Không thể hủy đơn hàng";
             throw new Error(message);
         }
 
         saveOrderStatusOverride(orderId, "CANCELLED");
-        return syncOrderStatus(cancelledOrder || ({ id: orderId, orderStatus: "CANCELLED" } as any));
+        return syncOrderStatus(
+            cancelledOrder ||
+                ({ id: orderId, orderStatus: "CANCELLED" } as any),
+        );
     },
 
     // Kết nối với backend API lấy danh sách đơn hàng của người dùng hiện tại (đồng bộ trạng thái với Admin)
-    async getMyOrders(currentPage = 1, pageSize = 20, orderStatus?: OrderStatus): Promise<PageResponse<OrderResponse>> {
+    async getMyOrders(
+        currentPage = 1,
+        pageSize = 20,
+        orderStatus?: OrderStatus,
+    ): Promise<PageResponse<OrderResponse>> {
         let pageData: PageResponse<OrderResponse> = {
             content: [],
             totalElements: 0,
@@ -280,17 +362,30 @@ export const orderService = {
         };
 
         try {
-            const response = await api.get<ApiDataResponse<PageResponse<OrderResponse>>>("/orders/users", {
-                params: { currentPage, pageSize, orderStatus: orderStatus || undefined },
+            const response = await api.get<
+                ApiDataResponse<PageResponse<OrderResponse>>
+            >("/orders/users", {
+                params: {
+                    currentPage,
+                    pageSize,
+                    orderStatus: orderStatus || undefined,
+                },
             });
             if (response.data?.data?.content) {
                 pageData = response.data.data;
             }
         } catch {
             try {
-                const response = await api.get<ApiDataResponse<any>>("/orders", {
-                    params: { currentPage, pageSize, orderStatus: orderStatus || undefined },
-                });
+                const response = await api.get<ApiDataResponse<any>>(
+                    "/orders",
+                    {
+                        params: {
+                            currentPage,
+                            pageSize,
+                            orderStatus: orderStatus || undefined,
+                        },
+                    },
+                );
                 const data = response.data?.data;
                 if (data?.content) {
                     pageData = {
@@ -299,7 +394,10 @@ export const orderService = {
                         last: currentPage >= (data.totalPages ?? 1),
                     };
                 } else if (Array.isArray(data)) {
-                    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+                    const totalPages = Math.max(
+                        1,
+                        Math.ceil(data.length / pageSize),
+                    );
                     pageData = {
                         content: data,
                         totalElements: data.length,
@@ -317,10 +415,14 @@ export const orderService = {
 
         // Đồng bộ trạng thái đơn hàng toàn hệ thống giữa Admin và Khách hàng trực tiếp từ database
         if (pageData?.content) {
-            pageData.content = pageData.content.map((ord) => syncOrderStatus(ord));
+            pageData.content = pageData.content.map((ord) =>
+                syncOrderStatus(ord),
+            );
 
             if (orderStatus) {
-                pageData.content = pageData.content.filter((ord) => ord.orderStatus === orderStatus);
+                pageData.content = pageData.content.filter(
+                    (ord) => ord.orderStatus === orderStatus,
+                );
                 pageData.totalElements = pageData.content.length;
             }
         }
@@ -329,41 +431,58 @@ export const orderService = {
     },
 
     // Tự động suy luận sản phẩm từ danh mục sản phẩm nếu đơn hàng chưa có chi tiết trong DB
-    resolveProductsForAmount(targetAmount: number, products: ProductSummary[]): OrderItemResponse[] {
+    resolveProductsForAmount(
+        targetAmount: number,
+        products: ProductSummary[],
+    ): OrderItemResponse[] {
         if (!products || products.length === 0) return [];
 
         const validAmount = targetAmount > 0 ? targetAmount : 0;
         if (validAmount <= 0) {
             const first = products[0];
-            return [{
-                id: first.id,
-                product: {
+            return [
+                {
                     id: first.id,
-                    name: first.name,
-                    price: first.price,
-                    thumbnailUrl: getProductThumbnail(first.name, first.categoryName, first.thumbnailUrl),
+                    product: {
+                        id: first.id,
+                        name: first.name,
+                        price: first.price,
+                        thumbnailUrl: getProductThumbnail(
+                            first.name,
+                            first.categoryName,
+                            first.thumbnailUrl,
+                        ),
+                    },
+                    quantity: 1,
+                    unitPrice: first.price,
+                    totalAmount: first.price,
                 },
-                quantity: 1,
-                unitPrice: first.price,
-                totalAmount: first.price,
-            }];
+            ];
         }
 
         // 1. Khớp chính xác 1 sản phẩm
-        const singleExact = products.find((p) => Math.abs(p.price - validAmount) < 1);
+        const singleExact = products.find(
+            (p) => Math.abs(p.price - validAmount) < 1,
+        );
         if (singleExact) {
-            return [{
-                id: singleExact.id,
-                product: {
+            return [
+                {
                     id: singleExact.id,
-                    name: singleExact.name,
-                    price: singleExact.price,
-                    thumbnailUrl: getProductThumbnail(singleExact.name, singleExact.categoryName, singleExact.thumbnailUrl),
+                    product: {
+                        id: singleExact.id,
+                        name: singleExact.name,
+                        price: singleExact.price,
+                        thumbnailUrl: getProductThumbnail(
+                            singleExact.name,
+                            singleExact.categoryName,
+                            singleExact.thumbnailUrl,
+                        ),
+                    },
+                    quantity: 1,
+                    unitPrice: singleExact.price,
+                    totalAmount: singleExact.price,
                 },
-                quantity: 1,
-                unitPrice: singleExact.price,
-                totalAmount: singleExact.price,
-            }];
+            ];
         }
 
         // 2. Khớp 1 sản phẩm có số lượng > 1 (ví dụ 2x, 3x)
@@ -371,18 +490,24 @@ export const orderService = {
             if (p.price > 0 && validAmount % p.price === 0) {
                 const qty = Math.round(validAmount / p.price);
                 if (qty >= 1 && qty <= 10) {
-                    return [{
-                        id: p.id,
-                        product: {
+                    return [
+                        {
                             id: p.id,
-                            name: p.name,
-                            price: p.price,
-                            thumbnailUrl: getProductThumbnail(p.name, p.categoryName, p.thumbnailUrl),
+                            product: {
+                                id: p.id,
+                                name: p.name,
+                                price: p.price,
+                                thumbnailUrl: getProductThumbnail(
+                                    p.name,
+                                    p.categoryName,
+                                    p.thumbnailUrl,
+                                ),
+                            },
+                            quantity: qty,
+                            unitPrice: p.price,
+                            totalAmount: validAmount,
                         },
-                        quantity: qty,
-                        unitPrice: p.price,
-                        totalAmount: validAmount,
-                    }];
+                    ];
                 }
             }
         }
@@ -390,7 +515,11 @@ export const orderService = {
         // 3. Khớp tổ hợp 2 sản phẩm khác nhau
         for (let i = 0; i < products.length; i++) {
             for (let j = i + 1; j < products.length; j++) {
-                if (Math.abs(products[i].price + products[j].price - validAmount) < 1) {
+                if (
+                    Math.abs(
+                        products[i].price + products[j].price - validAmount,
+                    ) < 1
+                ) {
                     return [
                         {
                             id: products[i].id,
@@ -398,7 +527,11 @@ export const orderService = {
                                 id: products[i].id,
                                 name: products[i].name,
                                 price: products[i].price,
-                                thumbnailUrl: getProductThumbnail(products[i].name, products[i].categoryName, products[i].thumbnailUrl),
+                                thumbnailUrl: getProductThumbnail(
+                                    products[i].name,
+                                    products[i].categoryName,
+                                    products[i].thumbnailUrl,
+                                ),
                             },
                             quantity: 1,
                             unitPrice: products[i].price,
@@ -410,7 +543,11 @@ export const orderService = {
                                 id: products[j].id,
                                 name: products[j].name,
                                 price: products[j].price,
-                                thumbnailUrl: getProductThumbnail(products[j].name, products[j].categoryName, products[j].thumbnailUrl),
+                                thumbnailUrl: getProductThumbnail(
+                                    products[j].name,
+                                    products[j].categoryName,
+                                    products[j].thumbnailUrl,
+                                ),
                             },
                             quantity: 1,
                             unitPrice: products[j].price,
@@ -432,35 +569,51 @@ export const orderService = {
             }
         }
 
-        return [{
-            id: closest.id,
-            product: {
+        return [
+            {
                 id: closest.id,
-                name: closest.name,
-                price: validAmount,
-                thumbnailUrl: getProductThumbnail(closest.name, closest.categoryName, closest.thumbnailUrl),
+                product: {
+                    id: closest.id,
+                    name: closest.name,
+                    price: validAmount,
+                    thumbnailUrl: getProductThumbnail(
+                        closest.name,
+                        closest.categoryName,
+                        closest.thumbnailUrl,
+                    ),
+                },
+                quantity: 1,
+                unitPrice: validAmount,
+                totalAmount: validAmount,
             },
-            quantity: 1,
-            unitPrice: validAmount,
-            totalAmount: validAmount,
-        }];
+        ];
     },
 
     // Kết nối với backend API lấy chi tiết sản phẩm của đơn hàng (Backend API -> Cache Frontend -> Tự động suy luận từ danh mục)
     async getOrderDetail(
         id: number,
-        orderHint?: { totalAmount?: number; finalAmount?: number; shippingAmount?: number }
+        orderHint?: {
+            totalAmount?: number;
+            finalAmount?: number;
+            shippingAmount?: number;
+        },
     ): Promise<OrderItemResponse[]> {
         // 1. Thử lấy từ Backend API (cả endpoint quản trị và người dùng)
         try {
-            const adminRes = await api.get<ApiDataResponse<OrderItemResponse[]>>(`/admin/orders/${id}`);
+            const adminRes = await api.get<
+                ApiDataResponse<OrderItemResponse[]>
+            >(`/admin/orders/${id}`);
             const beItems = adminRes.data?.data;
             if (Array.isArray(beItems) && beItems.length > 0) {
                 return beItems.map((item) => ({
                     ...item,
                     product: {
                         ...item.product,
-                        thumbnailUrl: getProductThumbnail(item.product?.name, undefined, item.product?.thumbnailUrl),
+                        thumbnailUrl: getProductThumbnail(
+                            item.product?.name,
+                            undefined,
+                            item.product?.thumbnailUrl,
+                        ),
                     },
                 }));
             }
@@ -469,14 +622,20 @@ export const orderService = {
         }
 
         try {
-            const response = await api.get<ApiDataResponse<OrderItemResponse[]>>(`/orders/${id}`);
+            const response = await api.get<
+                ApiDataResponse<OrderItemResponse[]>
+            >(`/orders/${id}`);
             const beItems = response.data?.data;
             if (Array.isArray(beItems) && beItems.length > 0) {
                 return beItems.map((item) => ({
                     ...item,
                     product: {
                         ...item.product,
-                        thumbnailUrl: getProductThumbnail(item.product?.name, undefined, item.product?.thumbnailUrl),
+                        thumbnailUrl: getProductThumbnail(
+                            item.product?.name,
+                            undefined,
+                            item.product?.thumbnailUrl,
+                        ),
                     },
                 }));
             }
@@ -491,7 +650,11 @@ export const orderService = {
                 ...item,
                 product: {
                     ...item.product,
-                    thumbnailUrl: getProductThumbnail(item.product?.name, undefined, item.product?.thumbnailUrl),
+                    thumbnailUrl: getProductThumbnail(
+                        item.product?.name,
+                        undefined,
+                        item.product?.thumbnailUrl,
+                    ),
                 },
             }));
         }
@@ -499,11 +662,16 @@ export const orderService = {
         // 3. Tự động suy luận sản phẩm từ danh mục sản phẩm của hệ thống nếu backend chưa lưu
         try {
             const shipping = orderHint?.shippingAmount || 20000;
-            const targetTotal = orderHint?.totalAmount || (orderHint?.finalAmount ? orderHint.finalAmount - shipping : 0);
+            const targetTotal =
+                orderHint?.totalAmount ||
+                (orderHint?.finalAmount ? orderHint.finalAmount - shipping : 0);
             const catalog = await catalogService.getProducts({ size: 50 });
             const products = catalog?.content || [];
             if (products.length > 0) {
-                const resolved = orderService.resolveProductsForAmount(targetTotal, products);
+                const resolved = orderService.resolveProductsForAmount(
+                    targetTotal,
+                    products,
+                );
                 if (resolved.length > 0) {
                     orderService.saveOrderItemsToCache(
                         id,
@@ -513,7 +681,7 @@ export const orderService = {
                             price: r.unitPrice,
                             thumbnailUrl: r.product.thumbnailUrl,
                             quantity: r.quantity,
-                        }))
+                        })),
                     );
                     return resolved;
                 }
@@ -527,7 +695,8 @@ export const orderService = {
 
     // Kết nối với backend API luồng hoàn tất đặt hàng tích hợp: tạo địa chỉ, liên kết deliveryId và gửi đơn hàng lên BE
     async placeOrder(params: PlaceOrderParams): Promise<OrderResponse> {
-        const { items, address, phoneNumber, paymentMethod, note, deliveryId } = params;
+        const { items, address, phoneNumber, paymentMethod, note, deliveryId } =
+            params;
 
         if (!items || items.length === 0) {
             throw new Error("Không có sản phẩm nào trong giỏ hàng để đặt.");
@@ -539,14 +708,21 @@ export const orderService = {
 
         // 1. Đảm bảo địa chỉ nhận hàng tồn tại trên Backend (tự động kiểm tra tránh trùng lặp)
         try {
-            await orderService.createDelivery({ address: cleanAddress, phoneNumber: cleanPhone });
+            await orderService.createDelivery({
+                address: cleanAddress,
+                phoneNumber: cleanPhone,
+            });
         } catch (deliveryError: any) {
-            console.warn("Lưu địa chỉ nhận hàng:", deliveryError?.response?.data?.message || deliveryError?.message);
+            console.warn(
+                "Lưu địa chỉ nhận hàng:",
+                deliveryError?.response?.data?.message ||
+                    deliveryError?.message,
+            );
         }
 
         // 2. Tìm ID ứng viên (candidateIds)
         const deliveryMap: Record<string, number> = JSON.parse(
-            localStorage.getItem("delivery_id_map") || "{}"
+            localStorage.getItem("delivery_id_map") || "{}",
         );
         const mappedId = deliveryMap[addressKey];
         const cachedIdStr = localStorage.getItem("last_delivery_id");
@@ -554,10 +730,13 @@ export const orderService = {
 
         const candidateIds: number[] = [];
         if (deliveryId && deliveryId > 0) candidateIds.push(deliveryId);
-        if (mappedId && mappedId > 0 && !candidateIds.includes(mappedId)) candidateIds.push(mappedId);
+        if (mappedId && mappedId > 0 && !candidateIds.includes(mappedId))
+            candidateIds.push(mappedId);
 
         // Thu thập các ID đã từng biết trong map
-        const knownIds = Object.values(deliveryMap).filter((id) => typeof id === "number" && id > 0);
+        const knownIds = Object.values(deliveryMap).filter(
+            (id) => typeof id === "number" && id > 0,
+        );
         if (cachedId && cachedId > 0 && !knownIds.includes(cachedId)) {
             knownIds.push(cachedId);
         }
@@ -576,19 +755,29 @@ export const orderService = {
         for (const candId of candidateIds) {
             try {
                 const order = await orderService.createOrder({
-                    items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+                    items: items.map((i) => ({
+                        productId: i.productId,
+                        quantity: i.quantity,
+                    })),
                     deliveryId: candId,
                     paymentMethod,
                     note: note || "",
                 });
 
                 // Kiểm tra xem đơn hàng vừa tạo có địa chỉ khớp với địa chỉ người dùng yêu cầu không
-                const orderAddress = order.delivery?.address?.trim()?.toLowerCase() || "";
+                const orderAddress =
+                    order.delivery?.address?.trim()?.toLowerCase() || "";
                 const targetAddress = cleanAddress.toLowerCase();
 
                 // Nếu BE gán đơn hàng vào một địa chỉ khác (candId thuộc về địa chỉ cũ của user):
-                if (orderAddress && !orderAddress.includes(targetAddress) && !targetAddress.includes(orderAddress)) {
-                    console.warn(`candId ${candId} có địa chỉ "${orderAddress}" không khớp với "${targetAddress}", hủy đơn và thử candId khác...`);
+                if (
+                    orderAddress &&
+                    !orderAddress.includes(targetAddress) &&
+                    !targetAddress.includes(orderAddress)
+                ) {
+                    console.warn(
+                        `candId ${candId} có địa chỉ "${orderAddress}" không khớp với "${targetAddress}", hủy đơn và thử candId khác...`,
+                    );
                     try {
                         await orderService.cancelOrder(order.id);
                     } catch (cancelErr) {
@@ -607,7 +796,10 @@ export const orderService = {
 
                 // Lưu lại deliveryId đã thành công cho địa chỉ này
                 deliveryMap[addressKey] = candId;
-                localStorage.setItem("delivery_id_map", JSON.stringify(deliveryMap));
+                localStorage.setItem(
+                    "delivery_id_map",
+                    JSON.stringify(deliveryMap),
+                );
                 localStorage.setItem("last_delivery_id", String(candId));
 
                 // Lưu thông tin chi tiết các mặt hàng vào cache Frontend để hiển thị chi tiết đầy đủ
@@ -619,7 +811,7 @@ export const orderService = {
                         price: i.price || 0,
                         thumbnailUrl: i.thumbnailUrl || null,
                         quantity: i.quantity,
-                    }))
+                    })),
                 );
 
                 // Làm sạch giỏ hàng ở cả LocalStorage và Backend
@@ -633,7 +825,8 @@ export const orderService = {
                 return order;
             } catch (err: any) {
                 lastError = err;
-                const errMsg = err?.response?.data?.message || err?.message || "";
+                const errMsg =
+                    err?.response?.data?.message || err?.message || "";
                 // Nếu lỗi là do không tìm thấy deliveryId, thử ID tiếp theo
                 if (
                     errMsg.includes("Địa chỉ nhận hàng không tồn tại") ||
@@ -647,6 +840,160 @@ export const orderService = {
             }
         }
 
-        throw lastError || new Error("Không thể liên kết địa chỉ giao hàng với đơn hàng. Vui lòng thử lại.");
+        throw (
+            lastError ||
+            new Error(
+                "Không thể liên kết địa chỉ giao hàng với đơn hàng. Vui lòng thử lại.",
+            )
+        );
+    },
+
+    // === PayOS Payment Flow ===
+    // Luồng đặt hàng riêng cho PayOS: tạo đơn hàng + tạo link thanh toán PayOS
+    // KHÔNG ảnh hưởng tới method placeOrder hiện tại (COD / CREDIT_CARD)
+    async placeOrderWithPayOS(
+        params: PlaceOrderParams,
+    ): Promise<{ order: OrderResponse; checkout: CreateCheckoutResponse }> {
+        const { items, address, phoneNumber, note, deliveryId } = params;
+
+        if (!items || items.length === 0) {
+            throw new Error("Không có sản phẩm nào trong giỏ hàng để đặt.");
+        }
+
+        const cleanAddress = address.trim();
+        const cleanPhone = phoneNumber.trim();
+        const addressKey = `${cleanAddress.toLowerCase()}_${cleanPhone}`;
+
+        // 1. Đảm bảo địa chỉ nhận hàng tồn tại trên Backend
+        try {
+            await orderService.createDelivery({
+                address: cleanAddress,
+                phoneNumber: cleanPhone,
+            });
+        } catch (deliveryError: any) {
+            console.warn(
+                "Lưu địa chỉ nhận hàng (PayOS):",
+                deliveryError?.response?.data?.message ||
+                    deliveryError?.message,
+            );
+        }
+
+        // 2. Tìm deliveryId phù hợp (logic tương tự placeOrder)
+        const deliveryMap: Record<string, number> = JSON.parse(
+            localStorage.getItem("delivery_id_map") || "{}",
+        );
+        const mappedId = deliveryMap[addressKey];
+        const cachedIdStr = localStorage.getItem("last_delivery_id");
+        const cachedId = cachedIdStr ? parseInt(cachedIdStr, 10) : null;
+
+        const candidateIds: number[] = [];
+        if (deliveryId && deliveryId > 0) candidateIds.push(deliveryId);
+        if (mappedId && mappedId > 0 && !candidateIds.includes(mappedId))
+            candidateIds.push(mappedId);
+
+        const knownIds = Object.values(deliveryMap).filter(
+            (id) => typeof id === "number" && id > 0,
+        );
+        if (cachedId && cachedId > 0 && !knownIds.includes(cachedId)) {
+            knownIds.push(cachedId);
+        }
+        const maxKnownId = knownIds.length > 0 ? Math.max(...knownIds) : 10;
+        const topRange = Math.max(maxKnownId + 30, 80);
+        for (let i = topRange; i >= 1; i--) {
+            if (!candidateIds.includes(i)) {
+                candidateIds.push(i);
+            }
+        }
+
+        let lastError: any = null;
+
+        for (const candId of candidateIds) {
+            try {
+                // Gọi paymentService để tạo link thanh toán PayOS (thay vì createOrder)
+                // Backend yêu cầu paymentMethod là "CREDIT_CARD" để tạo payment link chuyển khoản PayOS
+                const checkout = await paymentService.createPaymentLink({
+                    items: items.map((i) => ({
+                        productId: i.productId,
+                        quantity: i.quantity,
+                    })),
+                    deliveryId: candId,
+                    paymentMethod: "CREDIT_CARD",
+                    note: note || "",
+                });
+
+                // Lưu deliveryId thành công
+                deliveryMap[addressKey] = candId;
+                localStorage.setItem(
+                    "delivery_id_map",
+                    JSON.stringify(deliveryMap),
+                );
+                localStorage.setItem("last_delivery_id", String(candId));
+
+                // Backend trả về checkout.orderId và checkout.orderCode
+                const realOrderId = checkout.orderId || checkout.orderCode;
+                orderService.saveOrderItemsToCache(
+                    realOrderId,
+                    items.map((i) => ({
+                        productId: i.productId,
+                        name: i.name || `Sản phẩm #${i.productId}`,
+                        price: i.price || 0,
+                        thumbnailUrl: i.thumbnailUrl || null,
+                        quantity: i.quantity,
+                    })),
+                );
+
+                // Làm sạch giỏ hàng
+                useCartStore.getState().clearCart();
+                try {
+                    await cartService.clear();
+                } catch {
+                    // ignore
+                }
+
+                const subtotal = items.reduce(
+                    (sum, i) => sum + (i.price || 0) * i.quantity,
+                    0,
+                );
+                const shipping = 20000;
+                const finalTotal = checkout.amount || subtotal + shipping;
+
+                // Tạo OrderResponse từ checkout data để UI hiển thị
+                const order: OrderResponse = {
+                    id: realOrderId,
+                    totalAmount: subtotal,
+                    shippingAmount: shipping,
+                    finalAmount: finalTotal,
+                    delivery: {
+                        address: cleanAddress,
+                        phoneNumber: cleanPhone,
+                    },
+                    orderStatus: "PENDING",
+                    paymentMethod: "PAYOS",
+                    paymentStatus: "PENDING",
+                    note: note || undefined,
+                };
+
+                return { order, checkout };
+            } catch (err: any) {
+                lastError = err;
+                const errMsg =
+                    err?.response?.data?.message || err?.message || "";
+                if (
+                    errMsg.includes("Địa chỉ nhận hàng không tồn tại") ||
+                    errMsg.includes("Resource not found") ||
+                    err?.response?.status === 404
+                ) {
+                    continue;
+                }
+                throw err;
+            }
+        }
+
+        throw (
+            lastError ||
+            new Error(
+                "Không thể liên kết địa chỉ giao hàng với đơn hàng. Vui lòng thử lại.",
+            )
+        );
     },
 };

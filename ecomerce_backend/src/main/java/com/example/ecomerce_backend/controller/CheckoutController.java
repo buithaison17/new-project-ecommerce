@@ -4,6 +4,7 @@ import com.example.ecomerce_backend.model.dto.request.CancelCheckoutRequest;
 import com.example.ecomerce_backend.model.dto.request.CreateOrderRequest;
 import com.example.ecomerce_backend.model.dto.response.ApiDataResponse;
 import com.example.ecomerce_backend.model.dto.response.CreateCheckoutResponse;
+import com.example.ecomerce_backend.model.dto.response.PaymentStatusResponse;
 import com.example.ecomerce_backend.service.CheckoutService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,19 @@ public class CheckoutController {
         ), HttpStatus.OK);
     }
 
+    @GetMapping("/{orderId}/status")
+    public ResponseEntity<ApiDataResponse<PaymentStatusResponse>> checkPaymentStatus(
+            @PathVariable Long orderId
+    ) {
+        return new ResponseEntity<>(new ApiDataResponse<>(
+                true,
+                "Kiểm tra trạng thái thanh toán thành công",
+                checkoutService.checkPaymentStatus(orderId),
+                null,
+                HttpStatus.OK
+        ), HttpStatus.OK);
+    }
+
     @PostMapping("/webhook-handler")
     public ResponseEntity<ApiDataResponse<Void>> handlerWebhook(@RequestBody Object webHookData) {
         checkoutService.handleWebHook(webHookData);
@@ -53,4 +67,6 @@ public class CheckoutController {
                 HttpStatus.OK
         ), HttpStatus.OK);
     }
+
+    
 }

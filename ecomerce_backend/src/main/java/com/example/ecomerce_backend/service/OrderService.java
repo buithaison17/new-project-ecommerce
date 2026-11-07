@@ -29,6 +29,7 @@ import vn.payos.model.v2.paymentRequests.PaymentLinkStatus;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -36,7 +37,19 @@ import java.util.stream.Collectors;
 public class OrderService {
     private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
-    private final BigDecimal SHIPPING_AMOUNT = BigDecimal.valueOf(1000);
+    private final BigDecimal SHIPPING_AMOUNT = BigDecimal.valueOf(20000);
+
+    /**
+     * Luật chuyển trạng thái đơn hàng:
+     * PENDING -> SHIPPED -> DELIVERED; chỉ được hủy (CANCELLED) khi đơn còn PENDING.
+     * DELIVERED và CANCELLED là trạng thái cuối, không chuyển tiếp được.
+     */
+    private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = Map.of(
+            OrderStatus.PENDING, Set.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED),
+            OrderStatus.SHIPPED, Set.of(OrderStatus.DELIVERED),
+            OrderStatus.DELIVERED, Set.of(),
+            OrderStatus.CANCELLED, Set.of()
+    );
     private final UserDeliveryRepository userDeliveryRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -44,6 +57,7 @@ public class OrderService {
     private final TransactionRepository transactionRepository;
     private final CheckoutService checkoutService;
     private final UserInformationRepository userInformationRepository;
+    private final FlashSaleService flashSaleService;
 
     public OrderService(
             InventoryService inventoryService,
@@ -54,7 +68,8 @@ public class OrderService {
             OrderMapper orderMapper,
             TransactionRepository transactionRepository,
             @Lazy CheckoutService checkoutService,
-            UserInformationRepository userInformationRepository
+            UserInformationRepository userInformationRepository,
+            FlashSaleService flashSaleService
     ) {
         this.inventoryService = inventoryService;
         this.inventoryRepository = inventoryRepository;
@@ -65,6 +80,7 @@ public class OrderService {
         this.transactionRepository = transactionRepository;
         this.checkoutService = checkoutService;
         this.userInformationRepository = userInformationRepository;
+        this.flashSaleService = flashSaleService;
     }
 
     // Lấy toàn bộ danh sách đơn hàng (ADMIN)
@@ -114,6 +130,14 @@ public class OrderService {
         return orderMapper.toOrderItemResponseList(orderItems);
     }
 
+    // Chi tiết đơn hàng bất kỳ (ADMIN) - không lọc theo người dùng đang đăng nhập
+    public List<OrderItemResponse> getOrderDetailForAdmin(Long id) {
+        Order order = orderRepository.findById(id)
+                .filter(o -> !Boolean.TRUE.equals(o.getIsDeleted()))
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
+        return orderMapper.toOrderItemResponseList(orderItemRepository.findByOrder(order));
+    }
+
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
         // Lấy thông tin người dùng
@@ -133,9 +157,12 @@ public class OrderService {
                 .collect(Collectors.toMap(
                         CreateOrderItemRequest::productId,
                         CreateOrderItemRequest::quantity));
+        // Tính giá thực tế (áp dụng Flash Sale nếu có) cho từng sản phẩm
+        Map<Long, BigDecimal> unitPriceMap = flashSaleService.getEffectivePrices(
+                productMap.values().stream().toList());
         // Tính tổng tiền
-        BigDecimal totalAmount = productMap.values().stream()
-                .map(product -> product.getPrice().multiply(BigDecimal.valueOf(quantityMap.get(product.getId()))))
+        BigDecimal totalAmount = unitPriceMap.entrySet().stream()
+                .map(entry -> entry.getValue().multiply(BigDecimal.valueOf(quantityMap.get(entry.getKey()))))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         // Lấy địa chỉ nhận hàng
         UserDelivery userDelivery = userDeliveryRepository.findByIdAndUser(request.deliveryId(), user)
@@ -158,11 +185,11 @@ public class OrderService {
         List<OrderItem> orderItems = request.items().stream().map(item -> OrderItem.builder()
                 .order(finalOrder)
                 .totalAmount(
-                        productMap.get(item.productId()).getPrice().multiply(BigDecimal.valueOf(item.quantity()))
+                        unitPriceMap.get(item.productId()).multiply(BigDecimal.valueOf(item.quantity()))
                 )
                 .product(productMap.get(item.productId()))
                 .quantity(item.quantity())
-                .unitPrice(productMap.get(item.productId()).getPrice())
+                .unitPrice(unitPriceMap.get(item.productId()))
                 .build()).toList();
         orderItemRepository.saveAll(orderItems);
         // Trừ tồn kho
@@ -175,26 +202,76 @@ public class OrderService {
         return orderMapper.toOrderResponse(order);
     }
 
+    /**
+     * Cập nhật trạng thái đơn hàng.
+     * - ADMIN: chỉ được chuyển theo {@link #ALLOWED_TRANSITIONS} và phải thỏa điều kiện nghiệp vụ.
+     * - Người dùng thường: chỉ được hủy đơn của chính mình.
+     * Đơn thanh toán online (CREDIT_CARD) đã thanh toán không hủy qua đây vì cần hoàn tiền,
+     * phải dùng chức năng hủy đơn có thông tin tài khoản nhận hoàn tiền.
+     */
     @Transactional
     public OrderResponse updateStatus(Long id, OrderUpdateStatusRequest request) {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userPrincipal.getUser();
-        Order order = orderRepository.findById(id)
+        boolean isAdmin = "ADMIN".equals(user.getRole().getName());
+        OrderStatus target = request.status();
+
+        // Khóa dòng đơn hàng để hai request đồng thời không xử lý cùng một đơn
+        Order order = orderRepository.findWithLockById(id)
+                .filter(o -> !Boolean.TRUE.equals(o.getIsDeleted()))
+                .filter(o -> isAdmin || o.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
-        if (request.status().equals(OrderStatus.CANCELLED)) {
-            // Nếu là ADMIN sửa đơn
-            if (user.getRole().getName().equals("ADMIN")) {
-                return cancelOrder(order);
-            } else {
-                // Nếu là người dùng sửa đơn
-                Order changeOrder = orderRepository.findByIdAndUser(id, user)
-                        .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
-                return cancelOrder(changeOrder);
-            }
+
+        if (!isAdmin && target != OrderStatus.CANCELLED) {
+            throw new BadRequestException("Bạn chỉ được phép hủy đơn hàng");
         }
-        order.setOrderStatus(request.status());
-        orderRepository.save(order);
-        return orderMapper.toOrderResponse(order);
+
+        OrderStatus current = order.getOrderStatus();
+        if (current == target) {
+            throw new BadRequestException("Đơn hàng đã ở trạng thái " + target);
+        }
+        if (!ALLOWED_TRANSITIONS.getOrDefault(current, Set.of()).contains(target)) {
+            throw new BadRequestException("Không thể chuyển đơn hàng từ " + current + " sang " + target);
+        }
+
+        boolean paidOnline = order.getPaymentMethod() == PaymentMethod.CREDIT_CARD;
+        boolean paymentCompleted = order.getPaymentStatus() == PaymentStatus.COMPLETED;
+
+        switch (target) {
+            case CANCELLED -> {
+                if (paidOnline && paymentCompleted) {
+                    throw new BadRequestException(
+                            "Đơn đã thanh toán online, cần hủy bằng chức năng hủy đơn kèm thông tin hoàn tiền");
+                }
+                cancelOrder(order);
+            }
+            case SHIPPED -> {
+                // Thanh toán online phải hoàn tất mới được giao
+                if (paidOnline && !paymentCompleted) {
+                    throw new BadRequestException("Đơn hàng chưa thanh toán nên không thể giao");
+                }
+                order.setOrderStatus(OrderStatus.SHIPPED);
+                orderRepository.save(order);
+            }
+            case DELIVERED -> {
+                order.setOrderStatus(OrderStatus.DELIVERED);
+                // Thanh toán khi nhận hàng (COD): giao thành công thì coi như đã thu tiền
+                if (order.getPaymentMethod() == PaymentMethod.CASH
+                        && order.getPaymentStatus() == PaymentStatus.PENDING) {
+                    order.setPaymentStatus(PaymentStatus.COMPLETED);
+                }
+                orderRepository.save(order);
+            }
+            default -> throw new BadRequestException("Trạng thái không hợp lệ");
+        }
+        return toResponseWithUser(order);
+    }
+
+    // Kèm thông tin người đặt (nếu có) để admin xem; thiếu thông tin thì trả về bản không có user
+    private OrderResponse toResponseWithUser(Order order) {
+        return userInformationRepository.findByUserId(order.getUser().getId())
+                .map(info -> orderMapper.toOrderResponse(order, info))
+                .orElseGet(() -> orderMapper.toOrderResponse(order));
     }
 
     @Transactional

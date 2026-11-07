@@ -100,6 +100,13 @@ export default function UserProfilePage() {
     const [ordersTotalElements, setOrdersTotalElements] = useState(0);
     const [viewingOrder, setViewingOrder] = useState<OrderResponse | null>(null);
 
+    // State cho tab Sổ địa chỉ
+    const [deliveries, setDeliveries] = useState<UserDeliveryResponse[]>([]);
+    const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+    const [newAddress, setNewAddress] = useState("");
+    const [newPhone, setNewPhone] = useState("");
+    const [addingDelivery, setAddingDelivery] = useState(false);
+
     const {
         register: registerProfile,
         handleSubmit: handleSubmitProfile,
@@ -170,6 +177,7 @@ export default function UserProfilePage() {
     const loadProfile = async () => {
         try {
             setLoading(true);
+            // Kết nối với backend API lấy thông tin profile người dùng
             const data = await userService.getCurrentUser();
             setProfile(data);
             resetProfile({
@@ -193,6 +201,7 @@ export default function UserProfilePage() {
         try {
             setOrdersLoading(true);
             const statusParam = orderStatusFilter === "ALL" ? undefined : orderStatusFilter;
+            // Kết nối với backend API lấy danh sách đơn hàng của người dùng
             const res = await orderService.getMyOrders(ordersPage, ordersPageSize, statusParam);
             setOrders(res.content || []);
             setOrdersTotalPages(res.totalPages || 1);
@@ -205,8 +214,22 @@ export default function UserProfilePage() {
         }
     };
 
+    const loadDeliveries = async () => {
+        try {
+            setDeliveriesLoading(true);
+            // Kết nối với backend API lấy sổ địa chỉ giao hàng
+            const data = await orderService.getDeliveries(1, 20);
+            setDeliveries(data || []);
+        } catch (err) {
+            console.error("Lỗi tải sổ địa chỉ:", err);
+        } finally {
+            setDeliveriesLoading(false);
+        }
+    };
+
     const handleCancelOrder = async (orderId: number) => {
         try {
+            // Kết nối với backend API hủy đơn hàng
             await orderService.cancelOrder(orderId);
             message.success("Hủy đơn hàng thành công!");
             await loadOrders();
@@ -219,6 +242,50 @@ export default function UserProfilePage() {
         } catch (err: any) {
             const errMsg = err?.response?.data?.message || err?.message || "Không thể hủy đơn hàng";
             message.error(errMsg);
+        }
+    };
+
+    const handleAddDelivery = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const cleanAddress = newAddress.trim();
+        const cleanPhone = newPhone.trim();
+
+        if (!/^\d{10}$/.test(cleanPhone)) {
+            message.error("Số điện thoại phải có đúng 10 chữ số!");
+            return;
+        }
+
+        if (cleanAddress.length < 5) {
+            message.error("Vui lòng nhập địa chỉ cụ thể và hợp lệ!");
+            return;
+        }
+
+        try {
+            setAddingDelivery(true);
+            // Kết nối với backend API tạo địa chỉ giao hàng mới
+            await orderService.createDelivery({ address: cleanAddress, phoneNumber: cleanPhone });
+            message.success("Thêm địa chỉ nhận hàng thành công!");
+            setNewAddress("");
+            setNewPhone("");
+            await loadDeliveries();
+        } catch (err: any) {
+            message.error(err?.response?.data?.message || "Lỗi khi lưu địa chỉ mới");
+        } finally {
+            setAddingDelivery(false);
+        }
+    };
+
+    const handleDeleteDelivery = async (delivery: UserDeliveryResponse) => {
+        try {
+            // Kết nối với backend API xóa địa chỉ giao hàng
+            await orderService.deleteDeliveryAddress({
+                address: delivery.address,
+                phoneNumber: delivery.phoneNumber,
+            });
+            message.success("Đã xóa địa chỉ nhận hàng thành công!");
+            await loadDeliveries();
+        } catch (err: any) {
+            message.error("Không thể xóa địa chỉ nhận hàng này");
         }
     };
 
@@ -255,6 +322,7 @@ export default function UserProfilePage() {
                 formData.append("avatarUrl", avatarFile);
             }
 
+            // Kết nối với backend API cập nhật thông tin profile
             const updated = await userService.updateProfile(formData);
             message.success("Cập nhật thông tin thành công");
             setProfile(updated);
@@ -295,6 +363,7 @@ export default function UserProfilePage() {
 
     const onSubmitPassword = async (data: PasswordForm) => {
         try {
+            // Kết nối với backend API đổi mật khẩu
             await userService.changePassword({
                 oldPassword: data.oldPassword,
                 newPassword: data.newPassword,

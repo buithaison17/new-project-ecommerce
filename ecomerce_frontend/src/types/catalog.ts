@@ -4,3 +4,5 @@ export interface ProductImage { id: number; url: string; }
 export interface Product extends Omit<ProductSummary, "categoryId" | "categoryName"> { description: string | null; category: Category; images: ProductImage[]; createdAt: string; updatedAt: string; }
 export interface PageResponse<T> { content: T[]; page: number; size: number; totalElements: number; totalPages: number; }
 export interface ApiDataResponse<T> { success: boolean; message: string; data: T; }
+export interface FlashSaleProduct { id: number; name: string; price: number; salePrice: number; discountPercent: number; categoryId: number | null; categoryName: string | null; thumbnailUrl: string | null; stockQuantity: number; inStock: boolean; endAt: string | null; saleName?: string; }
+export * from "./flashSale";

@@ -8,6 +8,7 @@ import com.example.ecomerce_backend.model.dto.request.CreateOrderRequest;
 import com.example.ecomerce_backend.model.dto.request.CancelOrderRequest;
 import com.example.ecomerce_backend.model.dto.response.CreateCheckoutResponse;
 import com.example.ecomerce_backend.model.dto.response.OrderResponse;
+import com.example.ecomerce_backend.model.dto.response.PaymentStatusResponse;
 import com.example.ecomerce_backend.model.entity.Order;
 import com.example.ecomerce_backend.model.entity.Transaction;
 import com.example.ecomerce_backend.model.entity.User;
@@ -25,6 +26,7 @@ import vn.payos.exception.NotFoundException;
 import vn.payos.model.v1.payouts.PayoutRequests;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkRequest;
 import vn.payos.model.v2.paymentRequests.CreatePaymentLinkResponse;
+import vn.payos.model.v2.paymentRequests.PaymentLink;
 import vn.payos.model.v2.paymentRequests.PaymentLinkStatus;
 import vn.payos.model.webhooks.WebhookData;
 
@@ -141,6 +143,45 @@ public class CheckoutService {
         orderService.cancelOrder(transaction.getOrder());
     }
 
+    /**
+     * Kiểm tra trạng thái thanh toán thực tế từ PayOS và đồng bộ về DB.
+     * Dùng khi webhook chưa về kịp (người dùng quay lại từ trang PayOS).
+     */
+    @Transactional
+    public PaymentStatusResponse checkPaymentStatus(Long orderId) {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userPrincipal.getUser();
+        Transaction transaction = transactionRepository.findByOrderIdAndUser(orderId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Giao dịch không tồn tại"));
+        PaymentLink paymentLink;
+        try {
+            paymentLink = payOS.paymentRequests().get(transaction.getPaymentLinkId());
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy trạng thái payment link {}: {}", transaction.getPaymentLinkId(), e.getMessage(), e);
+            throw new CheckoutException("Không thể kiểm tra trạng thái thanh toán: " + e.getMessage());
+        }
+        PaymentLinkStatus remoteStatus = paymentLink.getStatus();
+        // Đồng bộ trạng thái nếu PayOS đã cập nhật mà webhook chưa xử lý
+        if (remoteStatus == PaymentLinkStatus.PAID && transaction.getStatus() != PaymentLinkStatus.PAID) {
+            transaction.setStatus(PaymentLinkStatus.PAID);
+            transaction.getOrder().setPaymentStatus(PaymentStatus.COMPLETED);
+            transactionRepository.save(transaction);
+            orderRepository.save(transaction.getOrder());
+            log.info("Đồng bộ thanh toán thành công cho orderId {} qua check status", orderId);
+        } else if (remoteStatus != transaction.getStatus()) {
+            transaction.setStatus(remoteStatus);
+            transactionRepository.save(transaction);
+        }
+        Order order = transaction.getOrder();
+        return new PaymentStatusResponse(
+                order.getId(),
+                transaction.getOrderCode(),
+                remoteStatus.name(),
+                order.getPaymentStatus().name(),
+                order.getFinalAmount()
+        );
+    }
+
     @Transactional
     public void handleWebHook(Object object) {
         WebhookData webhookData;
@@ -149,6 +190,9 @@ public class CheckoutService {
         } catch (Exception e) {
             log.error("Lỗi khi verify webhook: {}", e.getMessage(), e);
             throw new CheckoutException("Đã xảy ra lỗi khi thanh toán vui lòng thử lại");
+        }
+        if (webhookData.getOrderCode().equals(123L)) {
+            return;
         }
         Transaction transaction = transactionRepository.findByOrderCode(webhookData.getOrderCode())
                 .orElseThrow(() -> new NotFoundException("Đã xảy ra lỗi khi thanh toán"));

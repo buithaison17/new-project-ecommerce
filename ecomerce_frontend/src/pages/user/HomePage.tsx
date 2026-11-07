@@ -7,23 +7,40 @@ import {
     Percent,
     Search,
     Sparkles,
+    Timer,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import FlashSaleCard from "../../components/FlashSaleCard";
 import ProductCard from "../../components/ProductCard";
 import { catalogService } from "../../service/catalogService";
-import type { Category, ProductSummary } from "../../types/catalog";
+import { useFlashSaleStore } from "../../store/flashSaleStore";
+import type { Category, FlashSaleProduct, ProductSummary } from "../../types/catalog";
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 export default function HomePage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [featuredProducts, setFeaturedProducts] = useState<ProductSummary[]>([]);
+    const [flashProducts, setFlashProducts] = useState<FlashSaleProduct[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(true);
+    const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
+
+    const activeSales = useFlashSaleStore((s) => s.activeSales);
+    const fetchActiveSales = useFlashSaleStore((s) => s.fetchActiveSales);
 
     useEffect(() => {
         // Fetch categories
         catalogService
             .getCategories()
             .then((res) => setCategories(res))
+            .catch(() => undefined);
+
+        // Fetch active sales & flash sale products
+        fetchActiveSales().catch(() => undefined);
+        catalogService
+            .getFlashSaleProducts()
+            .then((res) => setFlashProducts(res || []))
             .catch(() => undefined);
 
         // Fetch featured products (latest)
@@ -35,7 +52,28 @@ export default function HomePage() {
             })
             .catch(() => undefined)
             .finally(() => setLoadingProducts(false));
-    }, []);
+    }, [fetchActiveSales]);
+
+    // Đếm ngược cho Flash Sale
+    useEffect(() => {
+        const endTimes = flashProducts
+            .map((p) => p.endAt)
+            .filter((v): v is string => Boolean(v))
+            .sort();
+        if (endTimes.length === 0) return;
+        const target = new Date(endTimes[0]).getTime();
+        const tick = () => {
+            const diff = Math.max(0, target - Date.now());
+            setTimeLeft({
+                h: Math.floor(diff / 3_600_000),
+                m: Math.floor((diff % 3_600_000) / 60_000),
+                s: Math.floor((diff % 60_000) / 1000),
+            });
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [flashProducts]);
 
     return (
         <div className="space-y-16 pb-12">
@@ -152,6 +190,63 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
+
+            {/* FLASH SALE SHOWCASE SECTION */}
+            {flashProducts.length > 0 && (
+                <section className="mx-auto max-w-7xl px-4 sm:px-6">
+                    <div className="relative overflow-hidden rounded-3xl border border-rose-200/80 bg-gradient-to-b from-rose-50/70 via-white to-white p-6 sm:p-8 shadow-sm">
+                        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center mb-6 pb-5 border-b border-rose-100">
+                            <div className="flex items-center gap-3">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 to-orange-500 text-white shadow-md shadow-rose-500/20">
+                                    <Flame size={24} className="animate-pulse" />
+                                </span>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-rose-600">
+                                            Giờ vàng giá sốc
+                                        </span>
+                                        {activeSales.length > 0 && (
+                                            <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white">
+                                                {activeSales[0].name}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h2 className="text-2xl font-black text-slate-900 sm:text-3xl">
+                                        Flash Sale Đang Diễn Ra
+                                    </h2>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-white">
+                                    <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
+                                        <Timer size={14} /> Kết thúc sau:
+                                    </span>
+                                    <div className="flex items-center gap-1 font-mono text-sm font-black text-amber-300">
+                                        <span>{pad(timeLeft.h)}</span>
+                                        <span className="text-white">:</span>
+                                        <span>{pad(timeLeft.m)}</span>
+                                        <span className="text-white">:</span>
+                                        <span>{pad(timeLeft.s)}</span>
+                                    </div>
+                                </div>
+                                <Link
+                                    to="/flash-sale"
+                                    className="inline-flex items-center gap-1.5 rounded-2xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-rose-700"
+                                >
+                                    Xem tất cả deal <ArrowRight size={14} />
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                            {flashProducts.slice(0, 4).map((product) => (
+                                <FlashSaleCard key={product.id} product={product} />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* CATEGORIES SECTION */}
             <section className="mx-auto max-w-7xl px-4 sm:px-6">

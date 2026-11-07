@@ -24,6 +24,7 @@ api.interceptors.request.use(
             config.url?.startsWith("/auth/register") ||
             config.url?.startsWith("/products") ||
             config.url?.startsWith("/categories") ||
+            config.url?.startsWith("/flash-sales") ||
             config.url?.startsWith("/auth/refresh");
 
         if (token && !isAuthApi) {
@@ -52,6 +53,7 @@ api.interceptors.response.use(
             url.startsWith("/auth/register") ||
             url.startsWith("/products") ||
             url.startsWith("/categories") ||
+            url.startsWith("/flash-sales") ||
             url.startsWith("/auth/refresh");
 
         if (isAuthApi) {
