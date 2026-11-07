@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class OrderService {
     private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
-    private final BigDecimal SHIPPING_AMOUNT = BigDecimal.valueOf(1000);
+    private final BigDecimal SHIPPING_AMOUNT = BigDecimal.valueOf(20000);
 
     /**
      * Luật chuyển trạng thái đơn hàng:

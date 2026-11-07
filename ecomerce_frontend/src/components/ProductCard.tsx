@@ -1,6 +1,7 @@
-import { ArrowUpRight, PackageOpen, ShoppingBag, XCircle } from "lucide-react";
+import { ArrowUpRight, Flame, PackageOpen, ShoppingBag, XCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { formatProductImageUrl } from "../lib/image";
+import { useFlashSaleStore } from "../store/flashSaleStore";
 import type { ProductSummary } from "../types/catalog";
 
 const formatPrice = (price: number) =>
@@ -13,11 +14,17 @@ const formatPrice = (price: number) =>
 export default function ProductCard({ product }: { product: ProductSummary }) {
     const imageUrl = formatProductImageUrl(product.thumbnailUrl);
     const navigate = useNavigate();
+    const getPriceInfo = useFlashSaleStore((state) => state.getPriceInfo);
+    const flashInfo = getPriceInfo(product);
 
     return (
         <div
             onClick={() => navigate(`/products/${product.id}`)}
-            className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/10"
+            className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                flashInfo.isFlashSale
+                    ? "border-rose-200 hover:border-rose-400 hover:shadow-rose-500/10"
+                    : "border-slate-200/90 hover:border-indigo-200 hover:shadow-indigo-500/10"
+            }`}
         >
             {/* Image container */}
             <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
@@ -35,8 +42,14 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
                     }}
                 />
 
-                {/* Stock status badge */}
+                {/* Stock & Flash Sale status badge */}
                 <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
+                    {flashInfo.isFlashSale && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
+                            <Flame size={12} />
+                            -{flashInfo.discountPercent}%
+                        </span>
+                    )}
                     {product.inStock ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-xs">
                             <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
@@ -52,7 +65,13 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
 
                 {/* Hover quick action overlay button */}
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 opacity-0 backdrop-blur-[2px] transition duration-300 group-hover:opacity-100">
-                    <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-slate-900 shadow-xl transition hover:bg-indigo-600 hover:text-white">
+                    <span
+                        className={`inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-slate-900 shadow-xl transition ${
+                            flashInfo.isFlashSale
+                                ? "hover:bg-rose-600 hover:text-white"
+                                : "hover:bg-indigo-600 hover:text-white"
+                        }`}
+                    >
                         Xem chi tiết <ArrowUpRight size={14} />
                     </span>
                 </div>
@@ -61,7 +80,11 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
             {/* Content info */}
             <div className="flex flex-1 flex-col p-4 sm:p-5">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                    <span className="font-bold uppercase tracking-wider text-indigo-600">
+                    <span
+                        className={`font-bold uppercase tracking-wider ${
+                            flashInfo.isFlashSale ? "text-rose-600" : "text-indigo-600"
+                        }`}
+                    >
                         {product.categoryName || "Sản phẩm"}
                     </span>
                     <span className="text-[11px] text-slate-400">
@@ -71,7 +94,13 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
                     </span>
                 </div>
 
-                <h3 className="line-clamp-2 min-h-[44px] text-sm font-bold leading-5 text-slate-800 transition group-hover:text-indigo-600 sm:text-base sm:leading-6">
+                <h3
+                    className={`line-clamp-2 min-h-[44px] text-sm font-bold leading-5 text-slate-800 transition sm:text-base sm:leading-6 ${
+                        flashInfo.isFlashSale
+                            ? "group-hover:text-rose-600"
+                            : "group-hover:text-indigo-600"
+                    }`}
+                >
                     <Link
                         to={`/products/${product.id}`}
                         className="focus:outline-none focus:underline"
@@ -83,17 +112,39 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
                 {/* Price and Action */}
                 <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between gap-2">
                     <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                            Giá bán
-                        </p>
-                        <p className="text-base font-extrabold text-slate-900 sm:text-lg text-indigo-600">
-                            {formatPrice(product.price)}
-                        </p>
+                        {flashInfo.isFlashSale ? (
+                            <>
+                                <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                                    <Flame size={12} /> Giá Flash Sale
+                                </p>
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-base font-extrabold text-rose-600 sm:text-lg">
+                                        {formatPrice(flashInfo.salePrice)}
+                                    </p>
+                                    <p className="text-xs font-medium text-slate-400 line-through">
+                                        {formatPrice(flashInfo.originalPrice)}
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                                    Giá bán
+                                </p>
+                                <p className="text-base font-extrabold text-slate-900 sm:text-lg text-indigo-600">
+                                    {formatPrice(product.price)}
+                                </p>
+                            </>
+                        )}
                     </div>
 
                     <Link
                         to={`/products/${product.id}`}
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-indigo-600 hover:text-white focus:outline-none"
+                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition focus:outline-none ${
+                            flashInfo.isFlashSale
+                                ? "bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white"
+                                : "bg-slate-100 text-slate-700 hover:bg-indigo-600 hover:text-white"
+                        }`}
                         aria-label={`Xem chi tiết ${product.name}`}
                     >
                         <ShoppingBag size={16} />

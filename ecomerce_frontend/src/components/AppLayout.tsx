@@ -3,6 +3,7 @@ import {
     ChevronRight,
     CircleUserRound,
     Clock,
+    Flame,
     Headphones,
     Layers,
     LogOut,
@@ -22,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import { useFlashSaleStore } from "../store/flashSaleStore";
 import { catalogService } from "../service/catalogService";
 import type { Category } from "../types/catalog";
 import CartButton from "./CartButton";
@@ -41,10 +43,13 @@ export default function AppLayout() {
     const user = useAuthStore((state) => state.user);
     const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser);
     const logout = useAuthStore((state) => state.logout);
+    const activeSales = useFlashSaleStore((state) => state.activeSales);
+    const fetchActiveSales = useFlashSaleStore((state) => state.fetchActiveSales);
 
     useEffect(() => {
         loadCurrentUser().catch(() => undefined);
-    }, [loadCurrentUser]);
+        fetchActiveSales().catch(() => undefined);
+    }, [loadCurrentUser, fetchActiveSales]);
 
     useEffect(() => {
         catalogService
@@ -209,9 +214,15 @@ export default function AppLayout() {
                         </Link>
                         <Link
                             to="/flash-sale"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            className="relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition hover:bg-slate-100 hover:text-rose-600 text-rose-600"
                         >
-                            Flash Sale
+                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                            <span>Flash Sale</span>
+                            {activeSales.length > 0 && (
+                                <span className="ml-1 inline-flex items-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-black text-white shadow-xs">
+                                    HOT
+                                </span>
+                            )}
                         </Link>
                         <Link
                             to="/orders"
@@ -379,9 +390,17 @@ export default function AppLayout() {
                                     <Link
                                         to="/flash-sale"
                                         onClick={() => setMobileMenuOpen(false)}
-                                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
+                                        className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
                                     >
-                                        Flash Sale
+                                        <span className="flex items-center gap-2.5">
+                                            <Flame size={17} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                                            <span>Flash Sale</span>
+                                        </span>
+                                        {activeSales.length > 0 && (
+                                            <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white">
+                                                HOT
+                                            </span>
+                                        )}
                                     </Link>
                                     <Link
                                         to="/orders"

@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** API công khai: danh sách chương trình Flash Sale đang chạy. */
+/**
+ * API công khai: danh sách chương trình Flash Sale đang chạy.
+ */
 @RestController
 @RequestMapping("/api/v1/flash-sales")
 @RequiredArgsConstructor

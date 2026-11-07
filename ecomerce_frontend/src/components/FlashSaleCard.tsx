@@ -65,8 +65,8 @@ export default function FlashSaleCard({ product }: { product: FlashSaleProduct }
             {/* Content info */}
             <div className="flex flex-1 flex-col p-4 sm:p-5">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                    <span className="font-bold uppercase tracking-wider text-rose-600">
-                        {product.categoryName || "Flash Sale"}
+                    <span className="font-bold uppercase tracking-wider text-rose-600 truncate max-w-[65%]">
+                        {product.saleName || product.categoryName || "Flash Sale"}
                     </span>
                     <span className="text-[11px] text-slate-400">
                         {product.inStock
@@ -87,8 +87,8 @@ export default function FlashSaleCard({ product }: { product: FlashSaleProduct }
                 {/* Price and Action */}
                 <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between gap-2">
                     <div>
-                        <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                            Giá Flash Sale
+                        <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                            <Flame size={12} /> Giá Flash Sale
                         </p>
                         <div className="flex items-baseline gap-2">
                             <p className="text-base font-extrabold text-rose-600 sm:text-lg">
