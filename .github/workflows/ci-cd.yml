@@ -99,11 +99,11 @@ jobs:
                   script: |
                       set -e
 
-                      mkdir -p ~/ecomerce
-                      cd ~/ecomerce
+                      mkdir -p ~/new-project-ecommerce
+                      cd ~/new-project-ecommerce
 
                       if [ ! -d ".git" ]; then
-                        git clone https://github.com/buithaison17/project-ecomerce .
+                        git clone https://github.com/buithaison17/new-project-ecommerce .
                       else
                         git pull origin main
                       fi
