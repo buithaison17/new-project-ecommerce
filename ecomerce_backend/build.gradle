@@ -5,6 +5,7 @@ plugins {
 }
 ext {
     springCloudVersion = "2025.1.4"
+    springAiVersion = "2.0.1"
 }
 
 group = 'com.example'
@@ -28,6 +29,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
@@ -50,6 +52,7 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:$springCloudVersion"
+        mavenBom "org.springframework.ai:spring-ai-bom:$springAiVersion"
     }
 }
 
