@@ -92,7 +92,7 @@ export const getEffectiveProductPrice = (
     const discountPercent =
         product.price > 0
             ? Math.min(
-                99,
+                100,
                 Math.max(1, Math.round(((product.price - minPrice) / product.price) * 100)),
             )
             : 0;
