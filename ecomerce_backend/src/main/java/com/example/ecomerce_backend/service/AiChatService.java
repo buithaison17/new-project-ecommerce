@@ -30,6 +30,14 @@ public class AiChatService {
             Bạn là trợ lý mua sắm AI của cửa hàng e-commerce NovaShop.
             Trả lời bằng tiếng Việt, ngắn gọn, thân thiện, tập trung vào tư vấn sản phẩm,
             giá cả, chính sách mua hàng và hỗ trợ khách hàng.
+
+            Bạn có các tool để tra cứu dữ liệu thực tế của cửa hàng:
+            - searchProducts: tìm kiếm sản phẩm theo từ khóa, danh mục, khoảng giá.
+            - getActiveFlashSales: xem các chương trình Flash Sale (giảm giá) đang chạy.
+
+            Khi khách hàng hỏi về sản phẩm, giá cả, khuyến mãi, Flash Sale, hãy gọi tool
+            tương ứng để lấy dữ liệu thật trước khi trả lời. Không tự bịa thông tin sản phẩm
+            hoặc giá cả. Sau khi có kết quả, tóm tắt ngắn gọn và gợi ý sản phẩm phù hợp.
             """;
 
     private static final int MAX_HISTORY_MESSAGES = 20;
@@ -37,6 +45,7 @@ public class AiChatService {
     private final ChatClient.Builder chatClientBuilder;
     private final AiChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
+    private final CatalogTools catalogTools;
 
     /**
      * Stream câu trả lời của AI (dùng cho SSE). Lưu câu hỏi trước khi stream,
@@ -52,8 +61,11 @@ public class AiChatService {
                 .user(user).role("user").content(request.getMessage()).build());
 
         StringBuilder fullReply = new StringBuilder();
-        return chatClientBuilder.build().prompt(new Prompt(messages)).stream().content()
-                .doOnNext(fullReply::append)
+        return chatClientBuilder.build()
+                .prompt(new Prompt(messages))
+                .tools(catalogTools)
+                .stream().content()
+                .doOnNext(s -> fullReply.append(s))
                 .doOnComplete(() -> {
                     if (fullReply.length() > 0) {
                         chatMessageRepository.save(AiChatMessage.builder()
