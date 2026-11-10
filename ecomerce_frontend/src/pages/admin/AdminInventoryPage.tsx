@@ -244,35 +244,35 @@ export default function AdminInventoryPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[800px] text-left text-xs">
                         <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-4">Sản phẩm</th>
-                                <th className="px-6 py-4">Tổng số lượng</th>
-                                <th className="px-6 py-4">Đang giữ</th>
-                                <th className="px-6 py-4">Sẵn sàng bán</th>
-                                <th className="px-6 py-4">Cập nhật gần nhất</th>
-                                <th className="px-6 py-4 text-right">Hành động</th>
-                            </tr>
+                        <tr>
+                            <th className="px-6 py-4">Sản phẩm</th>
+                            <th className="px-6 py-4">Tổng số lượng</th>
+                            <th className="px-6 py-4">Đang giữ</th>
+                            <th className="px-6 py-4">Sẵn sàng bán</th>
+                            <th className="px-6 py-4">Cập nhật gần nhất</th>
+                            <th className="px-6 py-4 text-right">Hành động</th>
+                        </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
-                                        Đang tải dữ liệu tồn kho...
-                                    </td>
-                                </tr>
-                            ) : shownItems.map((item) => (
-                                <tr key={item.productId} className="hover:bg-slate-50/60 transition">
-                                    <td className="px-6 py-4">
-                                        <p className="font-bold text-slate-900">{item.productName}</p>
-                                        <p className="mt-0.5 text-[11px] text-slate-400">Mã #{item.productId}</p>
-                                    </td>
-                                    <td className="px-6 py-4 font-semibold text-slate-800">
-                                        {item.quantity}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500">
-                                        {item.reservedQuantity}
-                                    </td>
-                                    <td className="px-6 py-4">
+                        {loading ? (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
+                                    Đang tải dữ liệu tồn kho...
+                                </td>
+                            </tr>
+                        ) : shownItems.map((item) => (
+                            <tr key={item.productId} className="hover:bg-slate-50/60 transition">
+                                <td className="px-6 py-4">
+                                    <p className="font-bold text-slate-900">{item.productName}</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-400">Mã #{item.productId}</p>
+                                </td>
+                                <td className="px-6 py-4 font-semibold text-slate-800">
+                                    {item.quantity}
+                                </td>
+                                <td className="px-6 py-4 text-slate-500">
+                                    {item.reservedQuantity}
+                                </td>
+                                <td className="px-6 py-4">
                                         <span
                                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
                                                 item.lowStock
@@ -287,41 +287,41 @@ export default function AdminInventoryPage() {
                                             />
                                             {item.availableQuantity} {item.lowStock ? "• Sắp hết" : "• Ổn định"}
                                         </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500">
-                                        {item.updatedAt
-                                            ? new Date(item.updatedAt).toLocaleDateString("vi-VN")
-                                            : "—"}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditor(item, "restock")}
-                                                className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
-                                            >
-                                                <PackagePlus size={14} /> Nhập hàng
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditor(item, "set")}
-                                                aria-label="Chỉnh sửa tồn kho"
-                                                className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition"
-                                                title="Sửa số lượng"
-                                            >
-                                                <Edit3 size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {!loading && !shownItems.length && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
-                                        Không tìm thấy mặt hàng nào phù hợp với bộ lọc.
-                                    </td>
-                                </tr>
-                            )}
+                                </td>
+                                <td className="px-6 py-4 text-slate-500">
+                                    {item.updatedAt
+                                        ? new Date(item.updatedAt).toLocaleDateString("vi-VN")
+                                        : "—"}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => openEditor(item, "restock")}
+                                            className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
+                                        >
+                                            <PackagePlus size={14} /> Nhập hàng
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => openEditor(item, "set")}
+                                            aria-label="Chỉnh sửa tồn kho"
+                                            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition"
+                                            title="Sửa số lượng"
+                                        >
+                                            <Edit3 size={14} />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                        {!loading && !shownItems.length && (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
+                                    Không tìm thấy mặt hàng nào phù hợp với bộ lọc.
+                                </td>
+                            </tr>
+                        )}
                         </tbody>
                     </table>
                 </div>
