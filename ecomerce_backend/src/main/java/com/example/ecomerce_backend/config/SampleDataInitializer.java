@@ -710,6 +710,29 @@ public class SampleDataInitializer implements CommandLineRunner {
             log.info("Đã tạo Flash Sale mẫu: {}", flashSale.getName());
         }
 
+        // 4. Quét kiểm tra toàn bộ sản phẩm: Đảm bảo 100% sản phẩm có tồn kho hợp lệ, không bị báo hết hàng
+        List<Product> allProducts = productRepository.findAll();
+        for (Product p : allProducts) {
+            var invOpt = inventoryRepository.findByProductId(p.getId());
+            if (invOpt.isEmpty()) {
+                inventoryRepository.save(Inventory.builder()
+                        .product(p)
+                        .quantity(30)
+                        .reservedQuantity(0)
+                        .version(0L)
+                        .build());
+                log.info("Bổ sung tồn kho tự động cho sản phẩm [ID: {}, Tên: {}]: 30 chiếc", p.getId(), p.getName());
+            } else {
+                Inventory inv = invOpt.get();
+                if (inv.getQuantity() == null || inv.getQuantity() <= 0) {
+                    inv.setQuantity(30);
+                    inv.setReservedQuantity(0);
+                    inventoryRepository.save(inv);
+                    log.info("Khôi phục tồn kho cho sản phẩm [ID: {}, Tên: {}]: 30 chiếc", p.getId(), p.getName());
+                }
+            }
+        }
+
         log.info("Hoàn tất nạp dữ liệu mẫu: {} danh mục, {} sản phẩm hiện có trong cơ sở dữ liệu.",
                 categoryRepository.count(), productRepository.count());
     }
@@ -732,49 +755,61 @@ public class SampleDataInitializer implements CommandLineRunner {
     ) {
         // Kiểm tra xem sản phẩm đã có trong cơ sở dữ liệu chưa
         var existingOpt = productRepository.findFirstByName(name);
+        Product targetProduct;
         if (existingOpt.isPresent()) {
-            Product existing = existingOpt.get();
+            targetProduct = existingOpt.get();
             // Nếu sản phẩm đã tồn tại nhưng chưa có ảnh, bổ sung ảnh mẫu để hiển thị đẹp mắt
-            if (existing.getProductImages().isEmpty() && imageUrls != null && !imageUrls.isEmpty()) {
+            if (targetProduct.getProductImages().isEmpty() && imageUrls != null && !imageUrls.isEmpty()) {
                 for (String url : imageUrls) {
-                    existing.getProductImages().add(ProductImage.builder()
-                            .product(existing)
+                    targetProduct.getProductImages().add(ProductImage.builder()
+                            .product(targetProduct)
                             .url(url)
                             .build());
                 }
-                productRepository.save(existing);
+                targetProduct = productRepository.save(targetProduct);
                 log.info("Đã bổ sung ảnh mẫu cho sản phẩm đã có: {}", name);
             }
-            return;
+        } else {
+            // Tạo mới sản phẩm kèm theo danh sách ảnh
+            Product product = Product.builder()
+                    .name(name)
+                    .description(description)
+                    .price(new BigDecimal(price))
+                    .category(category)
+                    .build();
+
+            if (imageUrls != null) {
+                for (String url : imageUrls) {
+                    product.getProductImages().add(ProductImage.builder()
+                            .product(product)
+                            .url(url)
+                            .build());
+                }
+            }
+
+            targetProduct = productRepository.save(product);
+            log.info("Đã thêm sản phẩm mẫu mới: [{}] - Danh mục: [{}] - Giá: {} VNĐ",
+                    targetProduct.getName(), category.getName(), price);
         }
 
-        // Tạo mới sản phẩm kèm theo danh sách ảnh
-        Product product = Product.builder()
-                .name(name)
-                .description(description)
-                .price(new BigDecimal(price))
-                .category(category)
-                .build();
-
-        if (imageUrls != null) {
-            for (String url : imageUrls) {
-                product.getProductImages().add(ProductImage.builder()
-                        .product(product)
-                        .url(url)
-                        .build());
+        // BẢO ĐẢM TỒN KHO LUÔN TỒN TẠI VÀ CÓ SỐ LƯỢNG HỢP LỆ (TRÁNH BỊ BÁO HẾT HÀNG)
+        var invOpt = inventoryRepository.findByProductId(targetProduct.getId());
+        if (invOpt.isEmpty()) {
+            inventoryRepository.save(Inventory.builder()
+                    .product(targetProduct)
+                    .quantity(quantity)
+                    .reservedQuantity(0)
+                    .version(0L)
+                    .build());
+            log.info("Đã tạo mới tồn kho cho sản phẩm [{}]: {} chiếc", targetProduct.getName(), quantity);
+        } else {
+            Inventory inv = invOpt.get();
+            if (inv.getQuantity() == null || inv.getQuantity() <= 0) {
+                inv.setQuantity(quantity);
+                inv.setReservedQuantity(0);
+                inventoryRepository.save(inv);
+                log.info("Đã khôi phục tồn kho cho sản phẩm [{}]: {} chiếc", targetProduct.getName(), quantity);
             }
         }
-
-        Product savedProduct = productRepository.save(product);
-
-        // Khởi tạo tồn kho tương ứng
-        inventoryRepository.save(Inventory.builder()
-                .product(savedProduct)
-                .quantity(quantity)
-                .reservedQuantity(0)
-                .build());
-
-        log.info("Đã thêm sản phẩm mẫu: [{}] - Danh mục: [{}] - Giá: {} VNĐ - Tồn kho: {}",
-                savedProduct.getName(), category.getName(), price, quantity);
     }
 }
