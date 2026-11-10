@@ -1,6 +1,10 @@
 spring:
   application:
     name: ecomerce_backend
+  task:
+    scheduling:
+      pool:
+        size: 2
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DATA_SOURCE_USERNAME}
