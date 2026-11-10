@@ -14,7 +14,7 @@ import {
     XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import OrderDetailModal from "../../components/OrderDetailModal";
 import { orderService } from "../../service/orderService";
 import type { OrderResponse, OrderStatus } from "../../types/order";
@@ -29,6 +29,7 @@ const formatPrice = (price?: number) => {
 };
 
 export default function OrdersPage() {
+    const navigate = useNavigate();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL");
@@ -42,6 +43,32 @@ export default function OrdersPage() {
 
     // State xem chi tiết đơn hàng
     const [viewingOrder, setViewingOrder] = useState<OrderResponse | null>(null);
+
+    // Xử lý tiếp tục thanh toán cho đơn hàng chưa hoàn tất thanh toán
+    const handleContinuePayment = (ord: OrderResponse) => {
+        let checkout: any = undefined;
+        try {
+            const saved = localStorage.getItem(`payos_checkout_${ord.id}`);
+            if (saved) {
+                checkout = JSON.parse(saved);
+            }
+        } catch {
+            // ignore
+        }
+
+        navigate("/payment", {
+            state: {
+                orderId: ord.id,
+                order: ord,
+                checkout: checkout || {
+                    amount: ord.finalAmount,
+                    description: `Thanh toán đơn hàng #${ord.id}`,
+                    qrCode: `THANHTOAN_DONHANG_${ord.id}_${ord.finalAmount}`,
+                },
+                paymentMethod: ord.paymentMethod || "PAYOS",
+            },
+        });
+    };
 
     useEffect(() => {
         void loadOrders();
@@ -237,7 +264,9 @@ export default function OrdersPage() {
                                                 <Clock size={13} />
                                                 {ord.paymentStatus === "COMPLETED"
                                                     ? "Đã thanh toán"
-                                                    : "Chờ thanh toán khi nhận"}
+                                                    : ord.paymentMethod === "CASH"
+                                                    ? "Chờ thanh toán khi nhận"
+                                                    : "Chưa thanh toán"}
                                             </span>
                                         </div>
 
@@ -317,6 +346,18 @@ export default function OrdersPage() {
 
                                         {/* Thanh nút hành động ở chân đơn hàng */}
                                         <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                                            {/* Nút tiếp tục thanh toán cho các đơn chưa thanh toán */}
+                                            {ord.paymentStatus !== "COMPLETED" && ord.orderStatus !== "CANCELLED" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleContinuePayment(ord)}
+                                                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                                                >
+                                                    <CreditCard size={15} />
+                                                    Tiếp tục thanh toán
+                                                </button>
+                                            )}
+
                                             <button
                                                 type="button"
                                                 onClick={() => setViewingOrder(ord)}
@@ -413,6 +454,7 @@ export default function OrdersPage() {
                 open={!!viewingOrder}
                 onClose={() => setViewingOrder(null)}
                 onCancelOrder={handleCancelOrder}
+                onContinuePayment={handleContinuePayment}
             />
         </div>
     );
