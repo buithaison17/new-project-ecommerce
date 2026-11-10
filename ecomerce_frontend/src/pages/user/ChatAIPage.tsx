@@ -8,7 +8,10 @@ import {
     Check,
     RotateCcw,
     Lightbulb,
+    Loader2,
 } from "lucide-react";
+import { aiChatService } from "../../service/aiChatService";
+import type { AiChatMessage } from "../../types/ai";
 
 interface Message {
     id: string;
@@ -41,9 +44,53 @@ export default function ChatAIPage() {
     const [inputValue, setInputValue] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+
+    // Format timestamp từ ISO string sang dạng hh:mm
+    const formatTimestamp = (dateStr?: string) => {
+        if (!dateStr) {
+            return new Date().toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        }
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            return dateStr;
+        }
+        return date.toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    };
+
+    // Gọi API lấy lịch sử chat khi component mount
+    useEffect(() => {
+        const fetchHistory = async () => {
+            setIsLoadingHistory(true);
+            try {
+                const history = await aiChatService.getHistory();
+                if (Array.isArray(history) && history.length > 0) {
+                    const mappedMessages: Message[] = history.map((item: AiChatMessage) => ({
+                        id: `history-${item.id}`,
+                        sender: item.role === "assistant" ? "ai" : "user",
+                        text: item.content,
+                        timestamp: formatTimestamp(item.createdAt),
+                    }));
+                    setMessages(mappedMessages);
+                }
+            } catch (error) {
+                console.error("Lỗi khi tải lịch sử chat AI:", error);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+
+        fetchHistory();
+    }, []);
 
     // Tự động cuộn xuống cuối danh sách tin nhắn khi có tin nhắn mới hoặc đang gõ
     const scrollToBottom = () => {
@@ -199,85 +246,94 @@ export default function ChatAIPage() {
 
                 {/* Messages Scroll Area */}
                 <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 space-y-5 scroll-smooth">
-                    {messages.map((msg) => {
-                        const isUser = msg.sender === "user";
-                        return (
-                            <div
-                                key={msg.id}
-                                className={`flex items-start gap-3 ${
-                                    isUser ? "flex-row-reverse" : "flex-row"
-                                } animate-in fade-in duration-200`}
-                            >
-                                {/* Avatar */}
-                                <div
-                                    className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${
-                                        isUser
-                                            ? "bg-gradient-to-tr from-violet-600 to-indigo-600 text-white"
-                                            : "bg-gradient-to-tr from-indigo-500 to-violet-500 text-white ring-1 ring-white/10"
-                                    }`}
-                                >
-                                    {isUser ? <User size={18} /> : <Bot size={18} />}
-                                </div>
-
-                                {/* Message Bubble */}
-                                <div
-                                    className={`group relative max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-sm ${
-                                        isUser
-                                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-tr-xs"
-                                            : "bg-slate-800/90 text-slate-100 border border-slate-700/60 rounded-tl-xs backdrop-blur-xs"
-                                    }`}
-                                >
-                                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                                        {msg.text}
-                                    </div>
-
-                                    {/* Footer info: Timestamp & Copy action */}
-                                    <div
-                                        className={`mt-2 flex items-center justify-end gap-2 text-[11px] ${
-                                            isUser ? "text-indigo-200/80" : "text-slate-400"
-                                        }`}
-                                    >
-                                        <span>{msg.timestamp}</span>
-                                        {!isUser && (
-                                            <button
-                                                type="button"
-                                                onClick={() => copyToClipboard(msg.text, msg.id)}
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-white"
-                                                title="Sao chép câu trả lời"
-                                            >
-                                                {copiedId === msg.id ? (
-                                                    <Check size={12} className="text-emerald-400" />
-                                                ) : (
-                                                    <Copy size={12} />
-                                                )}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-
-                    {/* Typing Indicator */}
-                    {isTyping && (
-                        <div className="flex items-start gap-3 animate-in fade-in duration-150">
-                            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white shadow-md ring-1 ring-white/10">
-                                <Bot size={18} />
-                            </div>
-                            <div className="rounded-2xl rounded-tl-xs border border-slate-700/60 bg-slate-800/90 px-4 py-3 shadow-sm backdrop-blur-xs">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
-                                    <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]" />
-                                    <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" />
-                                    <span className="ml-2 text-xs text-slate-400 font-medium">
-                                        ShopNova AI đang trả lời...
-                                    </span>
-                                </div>
-                            </div>
+                    {isLoadingHistory ? (
+                        <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 text-slate-400">
+                            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                            <span className="text-sm font-medium">Đang tải lịch sử trò chuyện...</span>
                         </div>
-                    )}
+                    ) : (
+                        <>
+                            {messages.map((msg) => {
+                                const isUser = msg.sender === "user";
+                                return (
+                                    <div
+                                        key={msg.id}
+                                        className={`flex items-start gap-3 ${
+                                            isUser ? "flex-row-reverse" : "flex-row"
+                                        } animate-in fade-in duration-200`}
+                                    >
+                                        {/* Avatar */}
+                                        <div
+                                            className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${
+                                                isUser
+                                                    ? "bg-gradient-to-tr from-violet-600 to-indigo-600 text-white"
+                                                    : "bg-gradient-to-tr from-indigo-500 to-violet-500 text-white ring-1 ring-white/10"
+                                            }`}
+                                        >
+                                            {isUser ? <User size={18} /> : <Bot size={18} />}
+                                        </div>
 
-                    <div ref={messagesEndRef} />
+                                        {/* Message Bubble */}
+                                        <div
+                                            className={`group relative max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-sm ${
+                                                isUser
+                                                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-tr-xs"
+                                                    : "bg-slate-800/90 text-slate-100 border border-slate-700/60 rounded-tl-xs backdrop-blur-xs"
+                                            }`}
+                                        >
+                                            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                                {msg.text}
+                                            </div>
+
+                                            {/* Footer info: Timestamp & Copy action */}
+                                            <div
+                                                className={`mt-2 flex items-center justify-end gap-2 text-[11px] ${
+                                                    isUser ? "text-indigo-200/80" : "text-slate-400"
+                                                }`}
+                                            >
+                                                <span>{msg.timestamp}</span>
+                                                {!isUser && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => copyToClipboard(msg.text, msg.id)}
+                                                        className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-white"
+                                                        title="Sao chép câu trả lời"
+                                                    >
+                                                        {copiedId === msg.id ? (
+                                                            <Check size={12} className="text-emerald-400" />
+                                                        ) : (
+                                                            <Copy size={12} />
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Typing Indicator */}
+                            {isTyping && (
+                                <div className="flex items-start gap-3 animate-in fade-in duration-150">
+                                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white shadow-md ring-1 ring-white/10">
+                                        <Bot size={18} />
+                                    </div>
+                                    <div className="rounded-2xl rounded-tl-xs border border-slate-700/60 bg-slate-800/90 px-4 py-3 shadow-sm backdrop-blur-xs">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.3s]" />
+                                            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce [animation-delay:-0.15s]" />
+                                            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" />
+                                            <span className="ml-2 text-xs text-slate-400 font-medium">
+                                                ShopNova AI đang trả lời...
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div ref={messagesEndRef} />
+                        </>
+                    )}
                 </div>
 
                 {/* Suggested Prompts (Gợi ý câu hỏi khi người dùng cần ý tưởng) */}
@@ -292,7 +348,7 @@ export default function ChatAIPage() {
                                     key={idx}
                                     type="button"
                                     onClick={() => handleSendMessage(prompt)}
-                                    disabled={isTyping}
+                                    disabled={isTyping || isLoadingHistory}
                                     className="rounded-xl border border-slate-700/70 bg-slate-800/50 px-3 py-1.5 text-xs text-slate-300 hover:border-indigo-500/60 hover:bg-slate-800 hover:text-white transition cursor-pointer text-left disabled:opacity-50"
                                 >
                                     {prompt}
@@ -318,15 +374,16 @@ export default function ChatAIPage() {
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 rows={1}
+                                disabled={isLoadingHistory}
                                 placeholder="Nhập câu hỏi hoặc yêu cầu tư vấn cho AI... (Enter để gửi)"
-                                className="w-full resize-none rounded-2xl border border-slate-700/80 bg-slate-900/90 py-3 pl-4 pr-10 text-sm text-slate-100 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25"
+                                className="w-full resize-none rounded-2xl border border-slate-700/80 bg-slate-900/90 py-3 pl-4 pr-10 text-sm text-slate-100 placeholder-slate-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 disabled:opacity-50"
                                 style={{ maxHeight: "120px" }}
                             />
                         </div>
 
                         <button
                             type="submit"
-                            disabled={!inputValue.trim() || isTyping}
+                            disabled={!inputValue.trim() || isTyping || isLoadingHistory}
                             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30 transition hover:from-indigo-500 hover:to-violet-500 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                             aria-label="Gửi tin nhắn"
                         >
