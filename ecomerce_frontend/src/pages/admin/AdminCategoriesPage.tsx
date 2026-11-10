@@ -1,4 +1,4 @@
-import { Edit3, FolderPlus, Layers3, Plus, Tag, Trash2, X } from "lucide-react";
+import { Edit3, FolderPlus, Layers3, Plus, RefreshCw, Tag, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { KeyboardEvent } from "react";
 import toast from "react-hot-toast";
@@ -19,18 +19,31 @@ export default function AdminCategoriesPage() {
     const [brands, setBrands] = useState<string[]>([]);
     const [brandInput, setBrandInput] = useState("");
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const loadCategories = () =>
-        catalogService
+    const loadCategories = (showToast = false) => {
+        setLoading(true);
+        return catalogService
             .getCategories()
             .then((cats) => {
                 const enriched = cats.map(enrichCategoryWithBrands);
                 setCategories(enriched);
+                if (showToast) {
+                    toast.success("Làm mới danh mục thành công!", { id: "categories-reload" });
+                }
             })
-            .catch(() => toast.error("Không tải được danh mục"));
+            .catch(() => toast.error("Không tải được danh mục"))
+            .finally(() => setLoading(false));
+    };
 
     useEffect(() => {
-        void Promise.resolve().then(loadCategories);
+        void Promise.resolve().then(() => loadCategories(false));
+
+        const handleAdminRefresh = () => {
+            void loadCategories(false);
+        };
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
+        return () => window.removeEventListener("admin_refresh_data", handleAdminRefresh);
     }, []);
 
     const openForm = (category: Category | "new") => {
@@ -136,13 +149,24 @@ export default function AdminCategoriesPage() {
                         Quản lý danh mục và cấu hình các hãng/thương hiệu để tối ưu hóa bộ lọc tìm kiếm cho khách hàng.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => openForm("new")}
-                    className="inline-flex w-fit items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 cursor-pointer"
-                >
-                    <FolderPlus size={16} /> Thêm danh mục mới
-                </button>
+                <div className="flex items-center gap-2.5">
+                    <button
+                        type="button"
+                        onClick={() => loadCategories(true)}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                    >
+                        <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                        <span>{loading ? "Đang tải lại..." : "Làm mới"}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => openForm("new")}
+                        className="inline-flex w-fit items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 cursor-pointer"
+                    >
+                        <FolderPlus size={16} /> Thêm danh mục mới
+                    </button>
+                </div>
             </section>
 
             {/* Grid list of categories */}

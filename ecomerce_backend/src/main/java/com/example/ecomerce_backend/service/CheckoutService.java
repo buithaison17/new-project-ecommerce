@@ -32,6 +32,7 @@ import vn.payos.model.webhooks.WebhookData;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
@@ -70,9 +71,14 @@ public class CheckoutService {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userPrincipal.getUser();
         OrderResponse orderResponse = null;
+        LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(10);
         try {
             // Tạo đơn hàng
             orderResponse = orderService.createOrder(request);
+            // Cập nhật expiredAt cho đơn hàng
+            Order order = orderRepository.findById(orderResponse.id()).get();
+            order.setExpiredAt(expiredAt);
+            orderRepository.save(order);
             // Tạo mã thanh toán
             Long orderCode = generateOrderCode();
             CreatePaymentLinkRequest createPaymentLinkRequest = CreatePaymentLinkRequest.builder()

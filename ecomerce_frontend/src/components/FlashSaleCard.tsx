@@ -87,17 +87,15 @@ export default function FlashSaleCard({ product }: { product: FlashSaleProduct }
                 {/* Price and Action */}
                 <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between gap-2">
                     <div>
-                        <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
-                            <Flame size={12} /> Giá Flash Sale
+                        <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                            <Flame size={11} /> Giá Flash Sale
                         </p>
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-base font-extrabold text-rose-600 sm:text-lg">
-                                {formatPrice(product.salePrice)}
-                            </p>
-                            <p className="text-xs font-medium text-slate-400 line-through">
-                                {formatPrice(product.price)}
-                            </p>
-                        </div>
+                        <p className="text-xs font-medium text-slate-400 line-through">
+                            {formatPrice(product.price)}
+                        </p>
+                        <p className="text-base font-extrabold text-rose-600 sm:text-lg leading-tight">
+                            {formatPrice(product.salePrice)}
+                        </p>
                     </div>
 
                     <Link

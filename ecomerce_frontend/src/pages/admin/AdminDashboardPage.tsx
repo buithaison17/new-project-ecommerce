@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import { adminService } from "../../service/adminService";
 import type { DashboardSummaryResponse, InventoryItem } from "../../types/admin";
 
@@ -30,7 +31,7 @@ export default function AdminDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
 
-    const loadData = () => {
+    const loadData = (showToast = false) => {
         setLoading(true);
         setHasError(false);
 
@@ -53,6 +54,10 @@ export default function AdminDashboardPage() {
                         setHasError(true);
                     }
                 }
+
+                if (showToast) {
+                    toast.success("Làm mới dữ liệu tổng quan thành công!", { id: "dashboard-reload" });
+                }
             })
             .finally(() => {
                 setLoading(false);
@@ -60,22 +65,28 @@ export default function AdminDashboardPage() {
     };
 
     useEffect(() => {
-        loadData();
+        loadData(false);
 
         let timer: any;
         const handleSync = () => {
             clearTimeout(timer);
             timer = setTimeout(() => {
-                loadData();
+                loadData(false);
             }, 500);
+        };
+
+        const handleAdminRefresh = () => {
+            loadData(false);
         };
 
         window.addEventListener("order_status_changed", handleSync);
         window.addEventListener("storage", handleSync);
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
         return () => {
             clearTimeout(timer);
             window.removeEventListener("order_status_changed", handleSync);
             window.removeEventListener("storage", handleSync);
+            window.removeEventListener("admin_refresh_data", handleAdminRefresh);
         };
     }, []);
 
@@ -211,11 +222,12 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center gap-2.5">
                     <button
                         type="button"
-                        onClick={loadData}
+                        onClick={() => loadData(true)}
                         disabled={loading}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
-                        <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới dữ liệu
+                        <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                        <span>{loading ? "Đang tải lại..." : "Làm mới dữ liệu"}</span>
                     </button>
                     <Link
                         to="/admin/orders"

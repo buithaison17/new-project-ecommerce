@@ -70,7 +70,7 @@ export default function AdminProductsPage() {
     const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const load = () => {
+    const load = (showToast = false) => {
         setLoading(true);
         Promise.all([
             catalogService.getProducts({
@@ -85,13 +85,24 @@ export default function AdminProductsPage() {
                 setTotalPages(prodPage.totalPages || 1);
                 setTotalElements(prodPage.totalElements ?? (prodPage.content?.length || 0));
                 setCategories(cats || []);
+                if (showToast) {
+                    toast.success("Làm mới danh sách sản phẩm thành công!", { id: "products-reload" });
+                }
             })
             .catch(() => toast.error("Không thể tải danh sách sản phẩm hoặc danh mục"))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        load();
+        load(false);
+    }, [currentPage, selectedCategoryId]);
+
+    useEffect(() => {
+        const handleAdminRefresh = () => {
+            load(false);
+        };
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
+        return () => window.removeEventListener("admin_refresh_data", handleAdminRefresh);
     }, [currentPage, selectedCategoryId]);
 
     const filteredProducts = products;
@@ -323,11 +334,12 @@ export default function AdminProductsPage() {
                 <div className="flex items-center gap-2.5">
                     <button
                         type="button"
-                        onClick={load}
+                        onClick={() => load(true)}
                         disabled={loading}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                     >
-                        <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
+                        <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                        <span>{loading ? "Đang tải lại..." : "Làm mới"}</span>
                     </button>
                     <button
                         type="button"

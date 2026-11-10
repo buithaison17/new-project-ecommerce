@@ -111,11 +111,14 @@ export default function AdminOrdersPage() {
     const [viewingOrder, setViewingOrder] = useState<AdminOrderExtended | null>(null);
 
     const loadOrders = useCallback(
-        async (targetPage: number, targetFilter: string) => {
+        async (targetPage: number, targetFilter: string, showToast = false) => {
             setLoading(true);
             try {
                 const data = await adminService.getOrders(targetPage, targetFilter);
                 setPage(data as unknown as PageResponse<AdminOrderExtended>);
+                if (showToast) {
+                    toast.success("Làm mới danh sách đơn hàng thành công!", { id: "orders-reload" });
+                }
             } catch {
                 toast.error("Không tải được đơn hàng. Hãy kiểm tra quyền Admin.");
             } finally {
@@ -138,12 +141,18 @@ export default function AdminOrdersPage() {
             }, 300);
         };
 
+        const handleAdminRefresh = () => {
+            void loadOrders(currentPage, filter);
+        };
+
         window.addEventListener("order_status_changed", handleSync);
         window.addEventListener("storage", handleSync);
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
         return () => {
             clearTimeout(timer);
             window.removeEventListener("order_status_changed", handleSync);
             window.removeEventListener("storage", handleSync);
+            window.removeEventListener("admin_refresh_data", handleAdminRefresh);
         };
     }, [currentPage, filter, loadOrders]);
 
@@ -323,11 +332,12 @@ export default function AdminOrdersPage() {
                 </div>
                 <button
                     type="button"
-                    onClick={() => loadOrders(currentPage, filter)}
+                    onClick={() => loadOrders(currentPage, filter, true)}
                     disabled={loading}
                     className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới danh sách
+                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                    <span>{loading ? "Đang tải lại..." : "Làm mới danh sách"}</span>
                 </button>
             </section>
 

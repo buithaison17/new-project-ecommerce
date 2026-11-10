@@ -372,16 +372,18 @@ export default function ProductDetailPage() {
                                 <p className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
                                     <Flame size={13} /> Giá Flash Sale
                                 </p>
-                                <div className="flex flex-wrap items-baseline gap-3 mt-1">
-                                    <p className="text-3xl font-black text-rose-600">
-                                        {formatPrice(flashInfo.salePrice)}
-                                    </p>
-                                    <p className="text-base font-semibold text-slate-400 line-through">
+                                <div className="mt-1 flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-slate-400 line-through sm:text-base">
                                         {formatPrice(product.price)}
-                                    </p>
+                                    </span>
                                     <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-black text-white shadow-xs">
                                         -{flashInfo.discountPercent}%
                                     </span>
+                                </div>
+                                <div className="mt-0.5">
+                                    <p className="text-3xl font-black text-rose-600">
+                                        {formatPrice(flashInfo.salePrice)}
+                                    </p>
                                 </div>
                                 <p className="mt-1 text-xs font-semibold text-rose-700">
                                     Tiết kiệm ngay: {formatPrice(product.price - flashInfo.salePrice)}

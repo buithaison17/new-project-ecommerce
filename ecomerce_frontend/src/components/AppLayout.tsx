@@ -16,18 +16,20 @@ import {
     ShieldCheck,
     ShoppingBag,
     Sparkles,
+    Tag,
     Truck,
     X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useFlashSaleStore } from "../store/flashSaleStore";
 import { catalogService } from "../service/catalogService";
-import type { Category } from "../types/catalog";
+import type { Category, ProductSummary } from "../types/catalog";
 import CartButton from "./CartButton";
 import { formatProductImageUrl } from "../lib/image";
+import { getDefaultBrandsForCategory } from "../lib/brandHelper";
 
 export default function AppLayout() {
     const navigate = useNavigate();
@@ -736,6 +738,35 @@ function CategoryMegaMenu({
     onSelect: (category: Category) => void;
     onNavigate: () => void;
 }) {
+    const [sampleProducts, setSampleProducts] = useState<ProductSummary[]>([]);
+
+    useEffect(() => {
+        if (!activeCategory) return;
+        let cancelled = false;
+        catalogService
+            .getProducts({ categoryId: activeCategory.id, size: 2 })
+            .then((res) => {
+                if (!cancelled) {
+                    setSampleProducts(res.content || []);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSampleProducts([]);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeCategory?.id]);
+
+    const suggestedBrands = useMemo(() => {
+        if (!activeCategory) return [];
+        return activeCategory.brands && activeCategory.brands.length > 0
+            ? activeCategory.brands
+            : getDefaultBrandsForCategory(activeCategory.name);
+    }, [activeCategory]);
+
     if (!categories.length) {
         return (
             <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-2xl">
@@ -745,9 +776,9 @@ function CategoryMegaMenu({
     }
 
     return (
-        <div className="absolute left-0 top-full mt-1 z-50 flex w-[680px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-1 z-50 flex w-[720px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
             {/* Sidebar list */}
-            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5 max-h-[460px] overflow-y-auto">
+            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5 max-h-[480px] overflow-y-auto">
                 <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Tất cả danh mục
                 </p>
@@ -782,29 +813,76 @@ function CategoryMegaMenu({
                 <h3 className="mt-1 text-2xl font-black text-slate-900">
                     {activeCategory?.name || "Danh mục"}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600 line-clamp-3">
+                <p className="mt-1.5 text-xs leading-5 text-slate-600 line-clamp-2">
                     {activeCategory?.description ||
                         "Khám phá các sản phẩm chọn lọc hàng đầu với chất lượng cam kết và giá cả cạnh tranh nhất."}
                 </p>
 
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3.5">
-                        <p className="text-xs font-bold text-indigo-700">Đa dạng sản phẩm</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Cập nhật liên tục</p>
+                {/* Gợi ý thương hiệu */}
+                {suggestedBrands.length > 0 && activeCategory && (
+                    <div className="mt-3.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <Tag size={12} className="text-indigo-600" /> Gợi ý hãng:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {suggestedBrands.slice(0, 6).map((b) => (
+                                <Link
+                                    key={b}
+                                    to={`/products?categoryId=${activeCategory.id}&brand=${encodeURIComponent(b)}`}
+                                    onClick={onNavigate}
+                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                                >
+                                    {b}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                    <div className="rounded-xl border border-violet-100 bg-violet-50/70 p-3.5">
-                        <p className="text-xs font-bold text-violet-700">Giá tốt nhất</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Nhiều ưu đãi hấp dẫn</p>
+                )}
+
+                {/* Mẫu tiêu biểu hiển thị ở trên (ảnh nhỏ) */}
+                {sampleProducts.length > 0 && (
+                    <div className="mt-3.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <Flame size={12} className="text-rose-500" /> Mẫu nổi bật:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {sampleProducts.map((p) => (
+                                <Link
+                                    key={p.id}
+                                    to={`/products/${p.id}`}
+                                    onClick={onNavigate}
+                                    className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white/90 p-2 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition"
+                                >
+                                    <img
+                                        src={formatProductImageUrl(p.thumbnailUrl)}
+                                        alt={p.name}
+                                        className="h-10 w-10 shrink-0 rounded-lg object-cover bg-slate-100"
+                                        onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src =
+                                                "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=60";
+                                        }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[11px] font-bold text-slate-800 hover:text-indigo-600">
+                                            {p.name}
+                                        </p>
+                                        <p className="text-[10px] font-black text-rose-600">
+                                            {Number(p.price).toLocaleString("vi-VN")}đ
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {activeCategory && (
                     <Link
                         to={`/products?categoryId=${activeCategory.id}`}
                         onClick={onNavigate}
-                        className="mt-auto inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
+                        className="mt-auto pt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
                     >
-                        Xem sản phẩm thuộc danh mục <ChevronRight size={14} />
+                        Xem tất cả sản phẩm thuộc danh mục <ChevronRight size={14} />
                     </Link>
                 )}
             </div>
