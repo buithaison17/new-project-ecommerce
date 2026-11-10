@@ -12,6 +12,7 @@ import CheckoutPage from "../pages/user/CheckoutPage";
 import CheckoutSuccessPage from "../pages/user/CheckoutSuccessPage";
 import PaymentPage from "../pages/payment/PaymentPage";
 import UserProfilePage from "../pages/user/UserProfilePage";
+import ChatAIPage from "../pages/user/ChatAIPage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
 import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
             { path: "/flash-sale", element: <FlashSalePage /> },
             { path: "/products/:id", element: <ProductDetailPage /> },
             { path: "/cart", element: <CartPage /> },
+            { path: "/chat-ai", element: <ChatAIPage /> },
             {
                 path: "/checkout",
                 element: (
