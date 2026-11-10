@@ -14,11 +14,11 @@ import PaymentPage from "../pages/payment/PaymentPage";
 import UserProfilePage from "../pages/user/UserProfilePage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
-// import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
+import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
-// import OrdersPage from "../pages/user/OrdersPage";
+import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -59,8 +59,8 @@ export const router = createBrowserRouter([
                 path: "/orders",
                 element: (
                     <ProtectedRoute role="CUSTOMER">
-                        {/* <OrdersPage /> */}
-                        <></>
+                         <OrdersPage />
+
                     </ProtectedRoute>
                 ),
             },
@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
             { path: "orders", element: <AdminOrdersPage /> },
             { path: "categories", element: <AdminCategoriesPage /> },
             { path: "products", element: <AdminProductsPage /> },
-            // { path: "inventory", element: <AdminInventoryPage /> },
+            { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
         ],
     },
