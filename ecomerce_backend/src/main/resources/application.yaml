@@ -34,6 +34,12 @@ spring:
               - profile
               - email
               - https://www.googleapis.com/auth/user.birthday.read
+  ai:
+    openai:
+      api-key: ${AI_API_KEY}
+      base-url: ${AI_BASE_URL}
+      chat:
+        model: ${API_CHAT_MODEL}
 server:
   port: 8080
 jwt:

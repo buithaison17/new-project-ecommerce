@@ -99,7 +99,7 @@ export const adminService = {
         let updatedOrder: AdminOrder | null = null;
         let lastError: any = null;
 
-        // Gọi API backend: PATCH /api/v1/admin/orders/{id}/status với body { status: OrderStatus }
+        // Thử gọi API backend: PATCH /admin/orders/{id}/status hoặc PATCH /orders/{id}
         try {
             const response = await api.patch<ApiDataResponse<AdminOrder>>(
                 `/admin/orders/${orderId}/status`,
@@ -110,24 +110,32 @@ export const adminService = {
             }
         } catch (err: any) {
             lastError = err;
-            // Nếu 404 (endpoint khác), thử fallback sang PATCH /api/v1/orders/{id}
-            if (err?.response?.status === 404) {
+            try {
+                const fallbackRes = await api.patch<ApiDataResponse<AdminOrder>>(
+                    `/orders/${orderId}`,
+                    { status: validStatus }
+                );
+                if (fallbackRes.data?.data) {
+                    updatedOrder = fallbackRes.data.data;
+                    lastError = null;
+                }
+            } catch (fallbackErr: any) {
                 try {
-                    const fallbackRes = await api.patch<ApiDataResponse<AdminOrder>>(
-                        `/orders/${orderId}`,
+                    const fallbackRes2 = await api.patch<ApiDataResponse<AdminOrder>>(
+                        `/admin/orders/${orderId}`,
                         { status: validStatus }
                     );
-                    if (fallbackRes.data?.data) {
-                        updatedOrder = fallbackRes.data.data;
+                    if (fallbackRes2.data?.data) {
+                        updatedOrder = fallbackRes2.data.data;
                         lastError = null;
                     }
-                } catch (fallbackErr: any) {
-                    lastError = fallbackErr;
+                } catch (fallbackErr2: any) {
+                    lastError = fallbackErr2;
                 }
             }
         }
 
-        // Nếu Backend trả về lỗi (ví dụ: HTTP 400 "Đơn hàng không thể hủy"), THROW lỗi để UI hiển thị và rollback
+        // Nếu Backend trả về lỗi (ví dụ: HTTP 400 "Đơn hàng không thể chuyển đổi" hoặc 401 "Chưa đăng nhập quyền Admin"), THROW lỗi để UI hiển thị và rollback
         if (lastError && !updatedOrder) {
             const message =
                 lastError.response?.data?.message ||
@@ -150,7 +158,7 @@ export const adminService = {
     // Lấy chi tiết sản phẩm của đơn hàng cho Admin
     async getOrderDetail(orderId: number, orderHint?: any): Promise<OrderItemResponse[]> {
         try {
-            const response = await api.get<ApiDataResponse<OrderItemResponse[]>>(`/admin/orders/${orderId}`);
+            const response = await api.get<ApiDataResponse<OrderItemResponse[]>>(`/orders/${orderId}`);
             const items = response.data?.data;
             if (Array.isArray(items) && items.length > 0) {
                 return items.map((item) => ({
@@ -162,10 +170,24 @@ export const adminService = {
                 }));
             }
         } catch (err) {
-            console.warn(`Lỗi khi gọi /admin/orders/${orderId}:`, err);
+            try {
+                const response = await api.get<ApiDataResponse<OrderItemResponse[]>>(`/admin/orders/${orderId}`);
+                const items = response.data?.data;
+                if (Array.isArray(items) && items.length > 0) {
+                    return items.map((item) => ({
+                        ...item,
+                        product: {
+                            ...item.product,
+                            thumbnailUrl: getProductThumbnail(item.product?.name, undefined, item.product?.thumbnailUrl),
+                        },
+                    }));
+                }
+            } catch (err2) {
+                console.warn(`Lỗi khi gọi /admin/orders/${orderId}:`, err2);
+            }
         }
 
-        // Fallback sang orderService (hỗ trợ /orders/{id}, cache đặt hàng và suy luận danh mục)
+        // Fallback sang orderService (hỗ trợ cache đặt hàng và suy luận danh mục)
         return orderService.getOrderDetail(orderId, orderHint);
     },
 

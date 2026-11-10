@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/payment-requests/webhook-handler").permitAll()
                         .requestMatchers("/api/v1/payment-requests/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/v1/banks/**").permitAll()
+                        .requestMatchers("/api/v1/ai/**").authenticated()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exception -> exception

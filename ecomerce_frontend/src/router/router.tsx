@@ -12,13 +12,14 @@ import CheckoutPage from "../pages/user/CheckoutPage";
 import CheckoutSuccessPage from "../pages/user/CheckoutSuccessPage";
 import PaymentPage from "../pages/payment/PaymentPage";
 import UserProfilePage from "../pages/user/UserProfilePage";
+import ChatAIPage from "../pages/user/ChatAIPage";
 import AdminDashboardPage from "../pages/admin/AdminDashboardPage";
 import AdminOrdersPage from "../pages/admin/AdminOrdersPage";
-// import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
+import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
-// import OrdersPage from "../pages/user/OrdersPage";
+import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
             { path: "/flash-sale", element: <FlashSalePage /> },
             { path: "/products/:id", element: <ProductDetailPage /> },
             { path: "/cart", element: <CartPage /> },
+            { path: "/chat-ai", element: <ChatAIPage /> },
             {
                 path: "/checkout",
                 element: (
@@ -59,8 +61,8 @@ export const router = createBrowserRouter([
                 path: "/orders",
                 element: (
                     <ProtectedRoute role="CUSTOMER">
-                        {/* <OrdersPage /> */}
-                        <></>
+                         <OrdersPage />
+
                     </ProtectedRoute>
                 ),
             },
@@ -98,7 +100,7 @@ export const router = createBrowserRouter([
             { path: "orders", element: <AdminOrdersPage /> },
             { path: "categories", element: <AdminCategoriesPage /> },
             { path: "products", element: <AdminProductsPage /> },
-            // { path: "inventory", element: <AdminInventoryPage /> },
+            { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
         ],
     },
