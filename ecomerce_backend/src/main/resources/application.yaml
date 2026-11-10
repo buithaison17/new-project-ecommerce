@@ -36,12 +36,10 @@ spring:
               - https://www.googleapis.com/auth/user.birthday.read
   ai:
     openai:
-      api-key: ${OPENROUTER_API_KEY}
-      base-url: https://openrouter.ai/api/v1
+      api-key: ${AI_API_KEY}
+      base-url: ${AI_BASE_URL}
       chat:
-        options:
-          model: ${OPENROUTER_MODEL:google/gemini-2.5-flash}
-
+        model: ${API_CHAT_MODEL}
 server:
   port: 8080
 jwt:
