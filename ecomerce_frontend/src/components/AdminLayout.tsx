@@ -14,6 +14,7 @@ import {
     Store,
     Users,
     X,
+    Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ const navigation = [
     { to: "/admin/products", label: "Danh sách sản phẩm", icon: Package },
     { to: "/admin/inventory", label: "Kiểm soát tồn kho", icon: Boxes },
     { to: "/admin/users", label: "Quản lý người dùng", icon: Users },
+    { to: "/admin/flash-sales", label: "Flash Sale", icon: Zap },
 ];
 
 export default function AdminLayout() {

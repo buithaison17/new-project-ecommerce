@@ -18,6 +18,7 @@ import AdminInventoryPage from "../pages/admin/AdminInventoryPage";
 import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
+import AdminFlashSalePage from "../pages/admin/AdminFlashSalePage";
 // import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -100,6 +101,7 @@ export const router = createBrowserRouter([
             { path: "products", element: <AdminProductsPage /> },
             { path: "inventory", element: <AdminInventoryPage /> },
             { path: "users", element: <AdminUsersPage /> },
+            { path: "flash-sales", element: <AdminFlashSalePage /> },
         ],
     },
 

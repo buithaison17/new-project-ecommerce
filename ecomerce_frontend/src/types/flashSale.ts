@@ -20,6 +20,19 @@ export interface FlashSaleResponse {
     updatedAt?: string;
 }
 
+export interface FlashSaleRequest {
+    name: string;
+    description?: string | null;
+    scope: FlashSaleScope;
+    categoryId?: number | null;
+    productId?: number | null;
+    discountType: FlashSaleDiscountType;
+    discountValue: number;
+    startAt: string;
+    endAt: string;
+    isActive?: boolean;
+}
+
 export interface FlashSalePriceInfo {
     originalPrice: number;
     salePrice: number;
