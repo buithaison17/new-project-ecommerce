@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
     const [userToBlock, setUserToBlock] = useState<AdminUserResponse | null>(null);
     const [userToUnblock, setUserToUnblock] = useState<AdminUserResponse | null>(null);
 
-    const loadUsers = () => {
+    const loadUsers = (showToast = false) => {
         setLoading(true);
         adminService
             .getUsers(
@@ -44,14 +44,25 @@ export default function AdminUsersPage() {
                 setUsers(response.content || []);
                 setTotalPages(response.totalPages || 1);
                 setTotalElements(response.totalElements ?? 0);
+                if (showToast) {
+                    toast.success("Làm mới danh sách người dùng thành công!", { id: "users-reload" });
+                }
             })
             .catch(() => toast.error("Không thể tải danh sách người dùng"))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        loadUsers();
+        loadUsers(false);
     }, [currentPage, roleFilter]);
+
+    useEffect(() => {
+        const handleAdminRefresh = () => {
+            loadUsers(false);
+        };
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
+        return () => window.removeEventListener("admin_refresh_data", handleAdminRefresh);
+    }, [currentPage, roleFilter, keyword]);
 
     const handleSearch = () => {
         setCurrentPage(1);
@@ -117,11 +128,12 @@ export default function AdminUsersPage() {
                 </div>
                 <button
                     type="button"
-                    onClick={loadUsers}
+                    onClick={() => loadUsers(true)}
                     disabled={loading}
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới
+                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                    <span>{loading ? "Đang tải lại..." : "Làm mới"}</span>
                 </button>
             </section>
 

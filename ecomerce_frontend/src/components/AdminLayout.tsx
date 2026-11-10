@@ -9,6 +9,7 @@ import {
     Menu,
     Package,
     ReceiptText,
+    RefreshCw,
     Search,
     ShoppingBag,
     Store,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuthStore } from "../store/authStore";
 import { formatProductImageUrl } from "../lib/image";
 
@@ -34,12 +36,23 @@ const navigation = [
 export default function AdminLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const navigate = useNavigate();
     const { user, logout } = useAuthStore();
 
     const handleLogout = async () => {
         await logout();
         navigate("/login");
+    };
+
+    const handleGlobalRefresh = () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        window.dispatchEvent(new CustomEvent("admin_refresh_data"));
+        setTimeout(() => {
+            setIsRefreshing(false);
+            toast.success("Làm mới dữ liệu thành công!", { id: "admin-global-refresh" });
+        }, 700);
     };
 
     const avatarUrl = user?.avatarUrl
@@ -175,7 +188,29 @@ export default function AdminLayout() {
                     </div>
 
                     {/* Actions right */}
-                    <div className="flex items-center gap-3 ml-auto">
+                    <div className="flex items-center gap-2.5 ml-auto">
+                        <button
+                            type="button"
+                            onClick={handleGlobalRefresh}
+                            disabled={isRefreshing}
+                            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold shadow-xs transition cursor-pointer ${
+                                isRefreshing
+                                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-indigo-600 hover:border-slate-300"
+                            }`}
+                            title="Làm mới lại toàn bộ dữ liệu trang quản trị"
+                        >
+                            <RefreshCw
+                                size={14}
+                                className={`text-indigo-600 transition-transform ${
+                                    isRefreshing ? "animate-spin" : ""
+                                }`}
+                            />
+                            <span className="hidden sm:inline">
+                                {isRefreshing ? "Đang làm mới..." : "Làm mới dữ liệu"}
+                            </span>
+                        </button>
+
                         <Link
                             to="/products"
                             target="_blank"
@@ -254,6 +289,13 @@ export default function AdminLayout() {
                             )}
                         </div>
                     </div>
+
+                    {/* Animated Loading Bar during refresh */}
+                    {isRefreshing && (
+                        <div className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden bg-indigo-100">
+                            <div className="h-full w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 animate-pulse" />
+                        </div>
+                    )}
                 </header>
 
                 {/* Page Content Outlet */}
