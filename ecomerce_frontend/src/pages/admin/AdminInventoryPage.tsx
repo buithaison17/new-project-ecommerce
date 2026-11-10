@@ -40,7 +40,7 @@ export default function AdminInventoryPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
 
-    const loadInventory = useCallback(() => {
+    const loadInventory = useCallback((showToast = false) => {
         setLoading(true);
         adminService
             .getInventories(lowStockOnly, currentPage, pageSize)
@@ -50,6 +50,9 @@ export default function AdminInventoryPage() {
                 setTotalElements(
                     pageData.totalElements ?? (pageData.content?.length || 0),
                 );
+                if (showToast) {
+                    toast.success("Đồng bộ kho hàng thành công!", { id: "inventory-reload" });
+                }
             })
             .catch(() =>
                 toast.error("Không tải được dữ liệu tồn kho. Hãy kiểm tra quyền Admin."),
@@ -58,7 +61,15 @@ export default function AdminInventoryPage() {
     }, [lowStockOnly, currentPage, pageSize]);
 
     useEffect(() => {
-        void Promise.resolve().then(loadInventory);
+        void Promise.resolve().then(() => loadInventory(false));
+    }, [loadInventory]);
+
+    useEffect(() => {
+        const handleAdminRefresh = () => {
+            void loadInventory(false);
+        };
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
+        return () => window.removeEventListener("admin_refresh_data", handleAdminRefresh);
     }, [loadInventory]);
 
     useEffect(() => {
@@ -128,10 +139,12 @@ export default function AdminInventoryPage() {
                 </div>
                 <button
                     type="button"
-                    onClick={() => loadInventory()}
-                    className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 cursor-pointer"
+                    onClick={() => loadInventory(true)}
+                    disabled={loading}
+                    className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Đồng bộ kho hàng
+                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                    <span>{loading ? "Đang đồng bộ..." : "Đồng bộ kho hàng"}</span>
                 </button>
             </section>
 
