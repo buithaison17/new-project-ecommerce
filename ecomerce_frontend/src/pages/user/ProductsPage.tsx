@@ -2,6 +2,7 @@ import {
     ChevronDown,
     ChevronUp,
     Filter,
+    Flame,
     Layers,
     RotateCcw,
     SlidersHorizontal,
@@ -11,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { EmptyProducts } from "../../components/ProductCard";
 import ProductCard from "../../components/ProductCard";
@@ -20,6 +21,7 @@ import {
     getDefaultBrandsForCategory,
     matchProductBrand,
 } from "../../lib/brandHelper";
+import { formatProductImageUrl } from "../../lib/image";
 import { catalogService } from "../../service/catalogService";
 import type {
     Category,
@@ -48,12 +50,14 @@ const priceRanges: PriceRange[] = [
 ];
 
 export default function ProductsPage() {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [result, setResult] = useState<PageResponse<ProductSummary> | null>(
         null,
     );
+    const [categorySamples, setCategorySamples] = useState<ProductSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -144,6 +148,35 @@ export default function ProductsPage() {
         };
     }, [keyword, brand, categoryId, minPrice, maxPrice, sortBy, page]);
 
+    // Lấy các mẫu nổi bật hiển thị ở trên khi xem danh mục
+    useEffect(() => {
+        if (!categoryId) {
+            setCategorySamples([]);
+            return;
+        }
+        let cancelled = false;
+        catalogService
+            .getProducts({
+                categoryId: Number(categoryId),
+                size: 6,
+                sortBy: "createdAt",
+                sortDir: "desc",
+            })
+            .then((res) => {
+                if (!cancelled) {
+                    setCategorySamples(res.content || []);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setCategorySamples([]);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [categoryId]);
+
     const updateFilter = (key: string, value: string) => {
         const next = new URLSearchParams(searchParams);
 
@@ -192,12 +225,90 @@ export default function ProductsPage() {
         return list.filter((p) => matchProductBrand(p.name, brand));
     }, [result, brand, categoryId]);
 
+    const displayedSamples = useMemo(() => {
+        if (categorySamples.length > 0) return categorySamples;
+        return (result?.content || []).slice(0, 6);
+    }, [categorySamples, result]);
+
     return (
         <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
             <CategoryHeader
                 category={selectedCategory}
                 totalElements={result?.totalElements}
             />
+
+            {/* Mẫu nổi bật hiển thị ở trên (ảnh nhỏ) khi xem danh mục */}
+            {selectedCategory && displayedSamples.length > 0 && (
+                <div className="mt-6 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50/70 via-white to-indigo-50/30 p-4 shadow-xs sm:p-5">
+                    <div className="mb-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                                <Flame size={14} />
+                            </span>
+                            <div>
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                    Mẫu nổi bật trong ngành hàng ({selectedCategory.name})
+                                </h3>
+                                <p className="text-[11px] text-slate-500">
+                                    Một số mẫu tiêu biểu được người dùng quan tâm nhiều nhất
+                                </p>
+                            </div>
+                        </div>
+                        <span className="hidden text-[11px] font-medium text-slate-400 sm:inline">
+                            Bấm vào mẫu để xem chi tiết
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                        {displayedSamples.map((product) => {
+                            const img = formatProductImageUrl(
+                                product.thumbnailUrl,
+                            );
+                            return (
+                                <div
+                                    key={product.id}
+                                    onClick={() =>
+                                        navigate(`/products/${product.id}`)
+                                    }
+                                    className="group flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2 shadow-2xs transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-md cursor-pointer"
+                                >
+                                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-100">
+                                        <img
+                                            src={img}
+                                            alt={product.name}
+                                            className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
+                                            onError={(e) => {
+                                                (
+                                                    e.currentTarget as HTMLImageElement
+                                                ).src =
+                                                    "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=60";
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p
+                                            className="truncate text-xs font-bold text-slate-800 group-hover:text-indigo-600"
+                                            title={product.name}
+                                        >
+                                            {product.name}
+                                        </p>
+                                        <p className="mt-0.5 text-xs font-black text-rose-600">
+                                            {new Intl.NumberFormat(
+                                                "vi-VN",
+                                                {
+                                                    style: "currency",
+                                                    currency: "VND",
+                                                    maximumFractionDigits: 0,
+                                                },
+                                            ).format(product.price)}
+                                        </p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Quick Filter Bar for active tags & mobile toggle */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
