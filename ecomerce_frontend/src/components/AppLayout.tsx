@@ -29,6 +29,7 @@ import { catalogService } from "../service/catalogService";
 import type { Category, ProductSummary } from "../types/catalog";
 import CartButton from "./CartButton";
 import { formatProductImageUrl } from "../lib/image";
+import AIChatWidget from "./AIChatWidget";
 import { getDefaultBrandsForCategory } from "../lib/brandHelper";
 
 export default function AppLayout() {
@@ -627,6 +628,9 @@ export default function AppLayout() {
                     </div>
                 </div>
             </footer>
+
+            {/* AI Chat Widget */}
+            <AIChatWidget />
         </div>
     );
 }

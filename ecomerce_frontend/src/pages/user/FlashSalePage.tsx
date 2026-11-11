@@ -41,7 +41,10 @@ const formatDateTime = (isoString?: string) => {
 export default function FlashSalePage() {
     const [products, setProducts] = useState<FlashSaleProduct[]>([]);
     const [sales, setSales] = useState<FlashSaleResponse[]>([]);
+    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
     const [selectedSaleId, setSelectedSaleId] = useState<number | "all">("all");
+    const [selectedCategory, setSelectedCategory] = useState<string>("all");
+    const [sortBy, setSortBy] = useState<string>("default");
     const [loading, setLoading] = useState(true);
     const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
 
@@ -54,12 +57,16 @@ export default function FlashSalePage() {
         Promise.all([
             catalogService.getActiveFlashSales(),
             catalogService.getFlashSaleProducts(),
+            catalogService.getCategories().catch(() => []),
             fetchActiveSales(true),
         ])
-            .then(([salesRes, productsRes]) => {
+            .then(([salesRes, productsRes, catsRes]) => {
                 if (!isMounted) return;
                 setSales(salesRes || []);
                 setProducts(productsRes || []);
+                if (catsRes && Array.isArray(catsRes)) {
+                    setCategories(catsRes.map((c) => ({ id: c.id, name: c.name })));
+                }
             })
             .catch(() => undefined)
             .finally(() => {
@@ -71,34 +78,80 @@ export default function FlashSalePage() {
         };
     }, [fetchActiveSales]);
 
+    // Tổng hợp tất cả phân loại danh mục có trong flash sale
+    const allCategories = useMemo(() => {
+        const catMap = new Map<number, string>();
+        categories.forEach((c) => catMap.set(c.id, c.name));
+        products.forEach((p) => {
+            if (p.categoryId != null && p.categoryName && !catMap.has(Number(p.categoryId))) {
+                catMap.set(Number(p.categoryId), p.categoryName);
+            }
+        });
+        return Array.from(catMap.entries()).map(([id, name]) => ({ id, name }));
+    }, [categories, products]);
+
     // Lọc sản phẩm theo chương trình đang chọn
     const activeSelectedSale = useMemo(() => {
         if (selectedSaleId === "all") return null;
         return sales.find((s) => s.id === selectedSaleId) || null;
     }, [selectedSaleId, sales]);
 
-    const filteredProducts = useMemo(() => {
-        if (selectedSaleId === "all") return products;
-        if (!activeSelectedSale) return products;
+    // Lọc và sắp xếp sản phẩm theo chương trình, phân loại và tiêu chí sắp xếp
+    const processedProducts = useMemo(() => {
+        let list = [...products];
 
-        return products.filter((p) => {
-            if (activeSelectedSale.scope === "ALL") return true;
-            if (activeSelectedSale.scope === "CATEGORY") {
-                return (
-                    activeSelectedSale.categoryId != null &&
-                    p.categoryId != null &&
-                    Number(p.categoryId) === Number(activeSelectedSale.categoryId)
+        // 1. Lọc theo chương trình Flash Sale
+        if (selectedSaleId !== "all" && activeSelectedSale) {
+            list = list.filter((p) => {
+                if (activeSelectedSale.scope === "ALL") return true;
+                if (activeSelectedSale.scope === "CATEGORY") {
+                    return (
+                        activeSelectedSale.categoryId != null &&
+                        p.categoryId != null &&
+                        Number(p.categoryId) === Number(activeSelectedSale.categoryId)
+                    );
+                }
+                if (activeSelectedSale.scope === "PRODUCT") {
+                    return (
+                        activeSelectedSale.productId != null &&
+                        Number(p.id) === Number(activeSelectedSale.productId)
+                    );
+                }
+                return false;
+            });
+        }
+
+        // 2. Lọc theo phân loại danh mục (selectedCategory)
+        if (selectedCategory !== "all") {
+            const catId = Number(selectedCategory);
+            list = list.filter(
+                (p) => p.categoryId != null && Number(p.categoryId) === catId
+            );
+        }
+
+        // 3. Sắp xếp (sortBy)
+        switch (sortBy) {
+            case "priceAsc":
+                list.sort((a, b) => a.salePrice - b.salePrice);
+                break;
+            case "priceDesc":
+                list.sort((a, b) => b.salePrice - a.salePrice);
+                break;
+            case "discount":
+                list.sort(
+                    (a, b) => (b.discountPercent || 0) - (a.discountPercent || 0)
                 );
-            }
-            if (activeSelectedSale.scope === "PRODUCT") {
-                return (
-                    activeSelectedSale.productId != null &&
-                    Number(p.id) === Number(activeSelectedSale.productId)
-                );
-            }
-            return false;
-        });
-    }, [products, selectedSaleId, activeSelectedSale]);
+                break;
+            case "name":
+                list.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+                break;
+            case "default":
+            default:
+                break;
+        }
+
+        return list;
+    }, [products, selectedSaleId, activeSelectedSale, selectedCategory, sortBy]);
 
     // Đếm ngược tới thời điểm kết thúc
     useEffect(() => {
@@ -304,7 +357,7 @@ export default function FlashSalePage() {
 
             {/* DANH SÁCH SẢN PHẨM FLASH SALE */}
             <section className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-4">
                     <div>
                         <h2 className="text-xl font-black text-slate-900 sm:text-2xl">
                             Sản phẩm Flash Sale
@@ -315,11 +368,51 @@ export default function FlashSalePage() {
                             </p>
                         )}
                     </div>
-                    {filteredProducts.length > 0 && (
-                        <span className="text-xs font-bold text-slate-500">
-                            {filteredProducts.length} sản phẩm
-                        </span>
-                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        {processedProducts.length > 0 && (
+                            <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                                Tìm thấy <strong className="text-slate-800">{processedProducts.length}</strong> sản phẩm
+                            </span>
+                        )}
+
+                        {/* Dropdown Phân loại (Category select) */}
+                        <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-slate-500 font-semibold hidden md:inline">
+                                Phân loại:
+                            </label>
+                            <select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs outline-none transition focus:border-rose-500 cursor-pointer"
+                            >
+                                <option value="all">Tất cả phân loại</option>
+                                {allCategories.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Dropdown Sắp xếp (Sort select) */}
+                        <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-slate-500 font-semibold hidden md:inline">
+                                Sắp xếp:
+                            </label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs outline-none transition focus:border-rose-500 cursor-pointer"
+                            >
+                                <option value="default">Mới cập nhật</option>
+                                <option value="discount">Giảm giá nhiều nhất</option>
+                                <option value="priceAsc">Giá: Thấp đến cao</option>
+                                <option value="priceDesc">Giá: Cao đến thấp</option>
+                                <option value="name">Tên sản phẩm A-Z</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -335,9 +428,9 @@ export default function FlashSalePage() {
                             </div>
                         ))}
                     </div>
-                ) : filteredProducts.length > 0 ? (
+                ) : processedProducts.length > 0 ? (
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        {filteredProducts.map((product) => (
+                        {processedProducts.map((product) => (
                             <FlashSaleCard key={product.id} product={product} />
                         ))}
                     </div>
@@ -346,19 +439,22 @@ export default function FlashSalePage() {
                         <Flame size={44} className="mx-auto text-rose-300" />
                         <h3 className="mt-4 text-xl font-bold text-slate-800">
                             {sales.length > 0
-                                ? "Không tìm thấy sản phẩm phù hợp cho chương trình này"
+                                ? "Không tìm thấy sản phẩm phù hợp cho bộ lọc này"
                                 : "Hiện chưa có Flash Sale nào đang diễn ra"}
                         </h3>
                         <p className="mt-2 text-sm text-slate-500">
                             {sales.length > 0
-                                ? "Vui lòng chọn chương trình khác hoặc xem tất cả deal sốc."
+                                ? "Vui lòng chọn phân loại hoặc chương trình khác để xem ưu đãi."
                                 : "Quay lại sau để săn những ưu đãi giá sốc nhất nhé!"}
                         </p>
                         <div className="mt-6 flex flex-wrap justify-center gap-3">
-                            {sales.length > 0 && selectedSaleId !== "all" && (
+                            {(selectedSaleId !== "all" || selectedCategory !== "all") && (
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedSaleId("all")}
+                                    onClick={() => {
+                                        setSelectedSaleId("all");
+                                        setSelectedCategory("all");
+                                    }}
                                     className="rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-rose-700"
                                 >
                                     Xem tất cả deal Flash Sale

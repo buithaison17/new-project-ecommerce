@@ -306,10 +306,17 @@ export default function CheckoutPage() {
 
                 message.success("Đơn hàng đã tạo! Chuyển tới trang thanh toán PayOS...");
 
-                navigate(`/payment/${order.id}`, {
+                try {
+                    localStorage.setItem(`payos_checkout_${order.id}`, JSON.stringify(checkout));
+                } catch {
+                    // ignore
+                }
+
+                navigate("/payment", {
                     state: {
-                        order,
+                        orderId: order.id,
                         checkout,
+                        order,
                         paymentMethod: "PAYOS",
                     },
                 });

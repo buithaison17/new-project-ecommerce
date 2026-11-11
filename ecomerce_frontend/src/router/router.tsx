@@ -49,7 +49,7 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: "/payment/:orderId",
+                path: "/payment",
                 element: (
                     <ProtectedRoute role="CUSTOMER">
                         <PaymentPage />
