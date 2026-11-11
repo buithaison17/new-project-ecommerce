@@ -94,7 +94,7 @@ public class CheckoutService {
             Transaction transaction = Transaction.builder()
                     .user(user)
                     .orderCode(orderCode)
-                    .order(orderRepository.findById(orderResponse.id()).get())
+                    .order(orderRepository.findById(orderResponse.id()).orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại")))
                     .paymentLinkId(createPaymentLinkResponse.getPaymentLinkId())
                     .status(createPaymentLinkResponse.getStatus())
                     .build();
