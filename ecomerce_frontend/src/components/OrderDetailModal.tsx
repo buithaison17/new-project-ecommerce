@@ -125,19 +125,22 @@ export default function OrderDetailModal({
                         <div />
                     )}
                     <div className="flex items-center gap-2">
-                        {syncedOrder.paymentStatus !== "COMPLETED" && syncedOrder.orderStatus !== "CANCELLED" && onContinuePayment && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    onContinuePayment(syncedOrder);
-                                    onClose();
-                                }}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
-                            >
-                                <CreditCard size={15} />
-                                Tiếp tục thanh toán
-                            </button>
-                        )}
+                        {syncedOrder.paymentStatus !== "COMPLETED" &&
+                            syncedOrder.orderStatus !== "CANCELLED" &&
+                            syncedOrder.paymentMethod === "CREDIT_CARD" &&
+                            onContinuePayment && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onContinuePayment(syncedOrder);
+                                        onClose();
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                                >
+                                    <CreditCard size={15} />
+                                    Tiếp tục thanh toán
+                                </button>
+                            )}
                         <button
                             type="button"
                             onClick={onClose}

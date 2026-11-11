@@ -43,6 +43,7 @@ export const useAuthStore = create<State>((set) => ({
 
             if (accessToken) {
                 localStorage.setItem("accessToken", accessToken);
+                localStorage.removeItem("token");
             }
 
             if (user) {
@@ -180,9 +181,16 @@ export const useAuthStore = create<State>((set) => ({
             set({ loading: true });
             // Kết nối với backend API làm mới token
             const response = await userService.refreshToken();
-            set({ accessToken: response.accessToken });
+            if (response && response.accessToken) {
+                localStorage.setItem("accessToken", response.accessToken);
+                localStorage.removeItem("token");
+                set({ accessToken: response.accessToken });
+                if (response.user) {
+                    set({ user: response.user });
+                }
+            }
         } catch (error) {
-            console.log(error);
+            console.error("Lỗi khi refresh token:", error);
         } finally {
             set({ loading: false });
         }
@@ -194,6 +202,7 @@ export const useAuthStore = create<State>((set) => ({
             await loginService.logout();
         } finally {
             localStorage.removeItem("accessToken");
+            localStorage.removeItem("token");
             localStorage.removeItem("currentUser");
             localStorage.removeItem("currentUserProfile");
 
