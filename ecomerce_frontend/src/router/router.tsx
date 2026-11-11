@@ -19,7 +19,7 @@ import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminFlashSalePage from "../pages/admin/AdminFlashSalePage";
-// import OrdersPage from "../pages/user/OrdersPage";
+import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -60,8 +60,8 @@ export const router = createBrowserRouter([
                 path: "/orders",
                 element: (
                     <ProtectedRoute role="CUSTOMER">
-                         {/*<OrdersPage />*/}
-                        <></>
+                         <OrdersPage />
+
                     </ProtectedRoute>
                 ),
             },
