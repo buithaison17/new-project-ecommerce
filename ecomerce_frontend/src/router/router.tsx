@@ -61,7 +61,7 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute role="CUSTOMER">
                          <OrdersPage />
-
+                        <></>
                     </ProtectedRoute>
                 ),
             },

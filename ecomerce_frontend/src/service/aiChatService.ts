@@ -1,29 +1,79 @@
-import axios from "axios";
+import { api } from "../lib/axios";
+import { useAuthStore } from "../store/authStore";
 import type { AiChatMessage, AiChatHistoryResponse } from "../types/ai";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.PROD
-    ? "http://221.121.4.43:8080/api/v1"
-    : "http://localhost:8080/api/v1");
+const getApiBase = (): string => {
+  const base =
+    api.defaults.baseURL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD
+      ? "http://221.121.4.43:8080/api/v1"
+      : "http://localhost:8080/api/v1");
+  return base.replace(/\/+$/, "");
+};
 
-const getAuthToken = (): string =>
-  localStorage.getItem("accessToken") || localStorage.getItem("token") || "";
+/**
+ * Lấy token xác thực hợp lệ từ Zustand store hoặc LocalStorage (hỗ trợ cả accessToken và fallback token cũ).
+ * Loại bỏ tiền tố Bearer thừa nếu có và tự động đồng bộ sang key chuẩn "accessToken".
+ */
+export const getAuthToken = (): string => {
+  let token =
+    useAuthStore.getState().accessToken ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    "";
+
+  if (!token || token === "undefined" || token === "null") {
+    return "";
+  }
+
+  token = token.replace(/^Bearer\s+/i, "").trim();
+
+  // Tự động đồng bộ sang key chuẩn "accessToken" nếu trước đó lưu ở key cũ "token"
+  if (token && !localStorage.getItem("accessToken")) {
+    try {
+      localStorage.setItem("accessToken", token);
+    } catch {
+      // ignore
+    }
+  }
+
+  return token;
+};
+
+/**
+ * Đảm bảo token còn hạn bằng cách chủ động refresh nếu chưa có hoặc có thể refresh được
+ */
+const ensureFreshToken = async (): Promise<string> => {
+  let token = getAuthToken();
+  if (!token) {
+    try {
+      await useAuthStore.getState().refresh();
+      token = getAuthToken();
+    } catch {
+      // ignore
+    }
+  }
+  return token;
+};
 
 export const aiChatService = {
+  /**
+   * Lấy lịch sử chat AI thông qua instance axios `api` (tự động đính kèm accessToken và refresh nếu 401)
+   */
   getHistory: async (): Promise<AiChatMessage[]> => {
-    const token = getAuthToken();
-    if (!token) return [];
-
-    const response = await axios.get<AiChatHistoryResponse>(
-      `${API_BASE}/ai/history`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    return response.data?.data || [];
+    try {
+      const response = await api.get<AiChatHistoryResponse>("/ai/history");
+      return response.data?.data || [];
+    } catch (error) {
+      console.warn("Không thể tải lịch sử chat AI:", error);
+      return [];
+    }
   },
 
   /**
    * Gọi POST /api/v1/ai/chat nhận phản hồi stream SSE (text/event-stream)
+   * Cơ chế Senior: Tự động refresh token nếu 401/403 và tự động retry 1 lần trong suốt quá trình người dùng chat.
    * @param message Tin nhắn của người dùng
    * @param onChunk Callback khi nhận từng chunk text từ AI stream
    * @param signal AbortSignal tùy chọn để hủy request nếu cần
@@ -34,21 +84,43 @@ export const aiChatService = {
     onChunk: (chunk: string) => void,
     signal?: AbortSignal
   ): Promise<string> => {
-    const token = getAuthToken();
+    let token = await ensureFreshToken();
     if (!token) {
       throw new Error("UNAUTHORIZED");
     }
 
-    const response = await fetch(`${API_BASE}/ai/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ message }),
-      signal,
-    });
+    const apiBase = getApiBase();
+
+    const executeFetch = async (authToken: string) => {
+      const cleanToken = authToken.replace(/^Bearer\s+/i, "").trim();
+      return fetch(`${apiBase}/ai/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${cleanToken}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ message }),
+        signal,
+      });
+    };
+
+    let response = await executeFetch(token);
+
+    // Nếu gặp 401 hoặc 403, tự động refresh token và thử lại ngay lập tức
+    if (response.status === 401 || response.status === 403) {
+      try {
+        await useAuthStore.getState().refresh();
+        const freshToken = getAuthToken();
+        if (freshToken && freshToken !== token) {
+          token = freshToken;
+          response = await executeFetch(token);
+        }
+      } catch (refreshErr) {
+        console.error("Lỗi tự động làm mới token cho AI Chat stream:", refreshErr);
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
