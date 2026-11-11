@@ -65,16 +65,20 @@ public class CheckoutService {
 
     @Transactional
     public CreateCheckoutResponse handleCheckoutOrder(CreateOrderRequest request) {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return handleCheckoutOrder(userPrincipal.getUser(), request);
+    }
+
+    @Transactional
+    public CreateCheckoutResponse handleCheckoutOrder(User user, CreateOrderRequest request) {
         if (request.paymentMethod().equals("COD")) {
             throw new BadRequestException("Chỉ áp dụng khi thanh toán bằng hình thức chuyển khoản");
         }
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
         OrderResponse orderResponse = null;
         LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(10);
         try {
             // Tạo đơn hàng
-            orderResponse = orderService.createOrder(request);
+            orderResponse = orderService.createOrder(user, request);
             // Cập nhật expiredAt cho đơn hàng
             Order order = orderRepository.findById(orderResponse.id()).get();
             order.setExpiredAt(expiredAt);
@@ -128,7 +132,11 @@ public class CheckoutService {
     // Chưa thanh toán và muốn hủy đơn
     public void cancelCheckout(Long orderId) {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
+        cancelCheckout(userPrincipal.getUser(), orderId);
+    }
+
+    @Transactional
+    public void cancelCheckout(User user, Long orderId) {
         Transaction transaction = transactionRepository.findByOrderIdAndUser(orderId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Giao dịch không tồn tại"));
         if (transaction.getStatus() != PaymentLinkStatus.PENDING) {
