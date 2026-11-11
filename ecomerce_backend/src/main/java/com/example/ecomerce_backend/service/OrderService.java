@@ -105,10 +105,11 @@ public class OrderService {
 
     // Lấy danh sách đơn hàng của người dùng
     public Page<OrderResponse> findAllByUser(Integer currentPage, Integer pageSize, OrderStatus orderStatus) {
-        // Lấy thông tin người dùng
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
-        // Phân trang
+        return findAllByUser(userPrincipal.getUser(), currentPage, pageSize, orderStatus);
+    }
+
+    public Page<OrderResponse> findAllByUser(User user, Integer currentPage, Integer pageSize, OrderStatus orderStatus) {
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
         Pageable pageable = PageRequest.of(currentPage - 1, pageSize, sort);
         if (orderStatus == null) {
@@ -121,9 +122,11 @@ public class OrderService {
 
     // Chi tiết đơn hàng
     public List<OrderItemResponse> getOrderDetail(Long id) {
-        // Lấy thông tin người dùng
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
+        return getOrderDetail(userPrincipal.getUser(), id);
+    }
+
+    public List<OrderItemResponse> getOrderDetail(User user, Long id) {
         Order order = orderRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         List<OrderItem> orderItems = orderItemRepository.findByOrder(order);
@@ -140,9 +143,12 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
-        // Lấy thông tin người dùng
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
+        return createOrder(userPrincipal.getUser(), request);
+    }
+
+    @Transactional
+    public OrderResponse createOrder(User user, CreateOrderRequest request) {
         // Lấy tồn kho
         List<Inventory> inventories = request.items().stream().map(item ->
                 inventoryRepository.findByProductId(item.productId())
@@ -296,7 +302,11 @@ public class OrderService {
     @Transactional
     public OrderResponse cancelOrder(Long id, CancelOrderRequest request) {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userPrincipal.getUser();
+        return cancelOrder(userPrincipal.getUser(), id, request);
+    }
+
+    @Transactional
+    public OrderResponse cancelOrder(User user, Long id, CancelOrderRequest request) {
         Order order = orderRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
         if (order.getOrderStatus() == OrderStatus.CANCELLED) {
