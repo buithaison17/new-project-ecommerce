@@ -18,6 +18,7 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,10 +63,28 @@ public class ProductService {
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
         // Thêm id làm tiêu chí phụ để phân trang ổn định khi nhiều sản phẩm cùng giá/tên
         Sort sort = Sort.by(direction, sortField).and(Sort.by(Sort.Direction.ASC, "id"));
-        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE), sort);
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        PageRequest pageRequest = PageRequest.of(safePage, safeSize, sort);
 
-        Page<Product> result = productRepository.findAll(
-                buildSpecification(keyword, categoryId, minPrice, maxPrice), pageRequest);
+        Page<Product> result;
+        if (keyword != null && !keyword.isBlank()) {
+            // Lọc keyword ở tầng Java sau khi bỏ dấu tiếng Việt, để tìm được
+            // cả khi người dùng/AI gõ không dấu (vd: "dien thoai" -> "Điện thoại")
+            String normalizedKeyword = normalizeVietnamese(keyword);
+            List<Product> filtered = productRepository
+                    .findAll(buildSpecification(categoryId, minPrice, maxPrice))
+                    .stream()
+                    .filter(p -> normalizeVietnamese(p.getName()).contains(normalizedKeyword))
+                    .sorted(productComparator(sortField, direction))
+                    .toList();
+            int from = Math.min(safePage * safeSize, filtered.size());
+            int to = Math.min(from + safeSize, filtered.size());
+            result = new PageImpl<>(filtered.subList(from, to), pageRequest, filtered.size());
+        } else {
+            result = productRepository.findAll(
+                    buildSpecification(categoryId, minPrice, maxPrice), pageRequest);
+        }
 
         // 1 query lấy tồn kho cho cả trang, tránh N+1
         List<Long> ids = result.getContent().stream().map(Product::getId).toList();
@@ -173,15 +194,11 @@ public class ProductService {
     }
 
     private Specification<Product> buildSpecification(
-            String keyword, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice
+            Long categoryId, BigDecimal minPrice, BigDecimal maxPrice
     ) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.<Boolean>get("isDeleted")));
-            if (keyword != null && !keyword.isBlank()) {
-                String pattern = "%" + escapeLike(keyword.trim().toLowerCase()) + "%";
-                predicates.add(cb.like(cb.lower(root.<String>get("name")), pattern, '\\'));
-            }
             if (categoryId != null) {
                 predicates.add(cb.equal(root.get("category").get("id"), categoryId));
             }
@@ -196,9 +213,26 @@ public class ProductService {
     }
 
     /**
-     * Escape ký tự đặc biệt của LIKE để keyword "50%" không bị hiểu thành wildcard.
+     * Bỏ dấu tiếng Việt + lowercase để so sánh keyword không phân biệt dấu.
+     * "đ/Đ" không phân rã được bằng NFD nên phải thay thủ công.
      */
-    private String escapeLike(String value) {
-        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    private String normalizeVietnamese(String value) {
+        if (value == null) {
+            return "";
+        }
+        String noMarks = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return noMarks.replace('đ', 'd').replace('Đ', 'D').toLowerCase();
+    }
+
+    private Comparator<Product> productComparator(String sortField, Sort.Direction direction) {
+        Comparator<Product> primary = switch (sortField) {
+            case "price" -> Comparator.comparing(Product::getPrice, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "name" -> Comparator.comparing(Product::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+            default -> Comparator.comparing(Product::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        };
+        if (direction == Sort.Direction.DESC) {
+            primary = primary.reversed();
+        }
+        return primary.thenComparing(Product::getId, Comparator.nullsLast(Comparator.naturalOrder()));
     }
 }

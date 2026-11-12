@@ -3,7 +3,7 @@ package com.example.ecomerce_backend.config;
 import com.example.ecomerce_backend.security.jwt.CustomOauthSuccessHandler;
 import com.example.ecomerce_backend.security.jwt.CustomerAuthenticationEntryPoint;
 import com.example.ecomerce_backend.security.jwt.JwtFilterBefore;
-import com.example.ecomerce_backend.security.principal.UserPrincipalService;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -11,15 +11,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -44,6 +39,9 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE/streaming endpoints dispatch lại request ở chế độ ASYNC;
+                        // bỏ qua phân quyền ở dispatch này để tránh "response already committed"
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/api/v1/auth/**", "/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/v1/users/me").authenticated()
                         .requestMatchers("/api/v1/auth/logout").authenticated()

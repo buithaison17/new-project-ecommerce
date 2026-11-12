@@ -30,9 +30,9 @@ export default function AdminInventoryPage() {
     const [saving, setSaving] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<ProductSummary[]>([]);
-    const [selectedCategoryId, setSelectedCategoryId] = useState<number | "all">(
-        "all",
-    );
+    const [selectedCategoryId, setSelectedCategoryId] = useState<
+        number | "all"
+    >("all");
 
     // Phân trang
     const [currentPage, setCurrentPage] = useState(1);
@@ -40,25 +40,33 @@ export default function AdminInventoryPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
 
-    const loadInventory = useCallback((showToast = false) => {
-        setLoading(true);
-        adminService
-            .getInventories(lowStockOnly, currentPage, pageSize)
-            .then((pageData) => {
-                setItems(pageData.content || []);
-                setTotalPages(pageData.totalPages || 1);
-                setTotalElements(
-                    pageData.totalElements ?? (pageData.content?.length || 0),
-                );
-                if (showToast) {
-                    toast.success("Đồng bộ kho hàng thành công!", { id: "inventory-reload" });
-                }
-            })
-            .catch(() =>
-                toast.error("Không tải được dữ liệu tồn kho. Hãy kiểm tra quyền Admin."),
-            )
-            .finally(() => setLoading(false));
-    }, [lowStockOnly, currentPage, pageSize]);
+    const loadInventory = useCallback(
+        (showToast = false) => {
+            setLoading(true);
+            adminService
+                .getInventories(lowStockOnly, currentPage, pageSize)
+                .then((pageData) => {
+                    setItems(pageData.content || []);
+                    setTotalPages(pageData.totalPages || 1);
+                    setTotalElements(
+                        pageData.totalElements ??
+                            (pageData.content?.length || 0),
+                    );
+                    if (showToast) {
+                        toast.success("Đồng bộ kho hàng thành công!", {
+                            id: "inventory-reload",
+                        });
+                    }
+                })
+                .catch(() =>
+                    toast.error(
+                        "Không tải được dữ liệu tồn kho. Hãy kiểm tra quyền Admin.",
+                    ),
+                )
+                .finally(() => setLoading(false));
+        },
+        [lowStockOnly, currentPage, pageSize],
+    );
 
     useEffect(() => {
         void Promise.resolve().then(() => loadInventory(false));
@@ -69,7 +77,11 @@ export default function AdminInventoryPage() {
             void loadInventory(false);
         };
         window.addEventListener("admin_refresh_data", handleAdminRefresh);
-        return () => window.removeEventListener("admin_refresh_data", handleAdminRefresh);
+        return () =>
+            window.removeEventListener(
+                "admin_refresh_data",
+                handleAdminRefresh,
+            );
     }, [loadInventory]);
 
     useEffect(() => {
@@ -86,13 +98,18 @@ export default function AdminInventoryPage() {
     };
 
     const saveStock = async () => {
-        if (!editingItem || quantity < 0 || (mode === "restock" && quantity === 0))
+        if (
+            !editingItem ||
+            quantity < 0 ||
+            (mode === "restock" && quantity === 0)
+        )
             return;
         try {
             setSaving(true);
             if (mode === "restock")
                 await adminService.restock(editingItem.productId, quantity);
-            else await adminService.updateStock(editingItem.productId, quantity);
+            else
+                await adminService.updateStock(editingItem.productId, quantity);
             toast.success(
                 mode === "restock"
                     ? "Đã nhập thêm hàng vào kho thành công"
@@ -134,7 +151,8 @@ export default function AdminInventoryPage() {
                         Kiểm soát tồn kho
                     </h1>
                     <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                        Theo dõi lượng hàng sẵn sàng bán, lượng đang giữ và nhập bổ sung kịp thời.
+                        Theo dõi lượng hàng sẵn sàng bán, lượng đang giữ và nhập
+                        bổ sung kịp thời.
                     </p>
                 </div>
                 <button
@@ -143,8 +161,13 @@ export default function AdminInventoryPage() {
                     disabled={loading}
                     className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
-                    <span>{loading ? "Đang đồng bộ..." : "Đồng bộ kho hàng"}</span>
+                    <RefreshCw
+                        size={14}
+                        className={`text-indigo-600 ${loading ? "animate-spin" : ""}`}
+                    />
+                    <span>
+                        {loading ? "Đang đồng bộ..." : "Đồng bộ kho hàng"}
+                    </span>
                 </button>
             </section>
 
@@ -164,7 +187,11 @@ export default function AdminInventoryPage() {
                         Sẵn sàng xuất kho
                     </p>
                     <p className="mt-2 text-2xl font-black text-emerald-600">
-                        {items.reduce((total, item) => total + item.availableQuantity, 0)} đơn vị
+                        {items.reduce(
+                            (total, item) => total + item.availableQuantity,
+                            0,
+                        )}{" "}
+                        đơn vị
                     </p>
                 </article>
 
@@ -225,7 +252,9 @@ export default function AdminInventoryPage() {
                             <button
                                 key={category.id}
                                 type="button"
-                                onClick={() => setSelectedCategoryId(category.id)}
+                                onClick={() =>
+                                    setSelectedCategoryId(category.id)
+                                }
                                 className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
                                     selectedCategoryId === category.id
                                         ? "bg-indigo-600 text-white shadow-xs"
@@ -244,84 +273,117 @@ export default function AdminInventoryPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[800px] text-left text-xs">
                         <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                        <tr>
-                            <th className="px-6 py-4">Sản phẩm</th>
-                            <th className="px-6 py-4">Tổng số lượng</th>
-                            <th className="px-6 py-4">Đang giữ</th>
-                            <th className="px-6 py-4">Sẵn sàng bán</th>
-                            <th className="px-6 py-4">Cập nhật gần nhất</th>
-                            <th className="px-6 py-4 text-right">Hành động</th>
-                        </tr>
+                            <tr>
+                                <th className="px-6 py-4">Sản phẩm</th>
+                                <th className="px-6 py-4">Tổng số lượng</th>
+                                <th className="px-6 py-4">Đang giữ</th>
+                                <th className="px-6 py-4">Sẵn sàng bán</th>
+                                <th className="px-6 py-4">Cập nhật gần nhất</th>
+                                <th className="px-6 py-4 text-right">
+                                    Hành động
+                                </th>
+                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                        {loading ? (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
-                                    Đang tải dữ liệu tồn kho...
-                                </td>
-                            </tr>
-                        ) : shownItems.map((item) => (
-                            <tr key={item.productId} className="hover:bg-slate-50/60 transition">
-                                <td className="px-6 py-4">
-                                    <p className="font-bold text-slate-900">{item.productName}</p>
-                                    <p className="mt-0.5 text-[11px] text-slate-400">Mã #{item.productId}</p>
-                                </td>
-                                <td className="px-6 py-4 font-semibold text-slate-800">
-                                    {item.quantity}
-                                </td>
-                                <td className="px-6 py-4 text-slate-500">
-                                    {item.reservedQuantity}
-                                </td>
-                                <td className="px-6 py-4">
-                                        <span
-                                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                                                item.lowStock
-                                                    ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                            }`}
-                                        >
+                            {loading ? (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="px-6 py-16 text-center text-slate-400"
+                                    >
+                                        Đang tải dữ liệu tồn kho...
+                                    </td>
+                                </tr>
+                            ) : (
+                                shownItems.map((item) => (
+                                    <tr
+                                        key={item.productId}
+                                        className="hover:bg-slate-50/60 transition"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <p className="font-bold text-slate-900">
+                                                {item.productName}
+                                            </p>
+                                            <p className="mt-0.5 text-[11px] text-slate-400">
+                                                Mã #{item.productId}
+                                            </p>
+                                        </td>
+                                        <td className="px-6 py-4 font-semibold text-slate-800">
+                                            {item.quantity}
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500">
+                                            {item.reservedQuantity}
+                                        </td>
+                                        <td className="px-6 py-4">
                                             <span
-                                                className={`h-1.5 w-1.5 rounded-full ${
-                                                    item.lowStock ? "bg-rose-500" : "bg-emerald-500"
+                                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                                    item.lowStock
+                                                        ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                                        : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                                 }`}
-                                            />
-                                            {item.availableQuantity} {item.lowStock ? "• Sắp hết" : "• Ổn định"}
-                                        </span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-500">
-                                    {item.updatedAt
-                                        ? new Date(item.updatedAt).toLocaleDateString("vi-VN")
-                                        : "—"}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex justify-end gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => openEditor(item, "restock")}
-                                            className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
-                                        >
-                                            <PackagePlus size={14} /> Nhập hàng
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openEditor(item, "set")}
-                                            aria-label="Chỉnh sửa tồn kho"
-                                            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition"
-                                            title="Sửa số lượng"
-                                        >
-                                            <Edit3 size={14} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        {!loading && !shownItems.length && (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-16 text-center text-slate-400">
-                                    Không tìm thấy mặt hàng nào phù hợp với bộ lọc.
-                                </td>
-                            </tr>
-                        )}
+                                            >
+                                                <span
+                                                    className={`h-1.5 w-1.5 rounded-full ${
+                                                        item.lowStock
+                                                            ? "bg-rose-500"
+                                                            : "bg-emerald-500"
+                                                    }`}
+                                                />
+                                                {item.availableQuantity}{" "}
+                                                {item.lowStock
+                                                    ? "• Sắp hết"
+                                                    : "• Ổn định"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500">
+                                            {item.updatedAt
+                                                ? new Date(
+                                                      item.updatedAt,
+                                                  ).toLocaleDateString("vi-VN")
+                                                : "—"}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        openEditor(
+                                                            item,
+                                                            "restock",
+                                                        )
+                                                    }
+                                                    className="inline-flex items-center gap-1 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition"
+                                                >
+                                                    <PackagePlus size={14} />{" "}
+                                                    Nhập hàng
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        openEditor(item, "set")
+                                                    }
+                                                    aria-label="Chỉnh sửa tồn kho"
+                                                    className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition"
+                                                    title="Sửa số lượng"
+                                                >
+                                                    <Edit3 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                            {!loading && !shownItems.length && (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="px-6 py-16 text-center text-slate-400"
+                                    >
+                                        Không tìm thấy mặt hàng nào phù hợp với
+                                        bộ lọc.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -329,7 +391,8 @@ export default function AdminInventoryPage() {
                 {/* Table pagination */}
                 <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4 text-xs text-slate-500 sm:flex-row">
                     <span>
-                        Hiển thị <strong>{shownItems.length}</strong> / tổng <strong>{totalElements}</strong> mặt hàng
+                        Hiển thị <strong>{shownItems.length}</strong> / tổng{" "}
+                        <strong>{totalElements}</strong> mặt hàng
                     </span>
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-500 font-medium">
@@ -339,7 +402,9 @@ export default function AdminInventoryPage() {
                             <button
                                 type="button"
                                 disabled={currentPage <= 0 || loading}
-                                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                                onClick={() =>
+                                    setCurrentPage((p) => Math.max(0, p - 1))
+                                }
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                                 title="Trang trước"
                             >
@@ -347,7 +412,9 @@ export default function AdminInventoryPage() {
                             </button>
                             <button
                                 type="button"
-                                disabled={currentPage >= totalPages - 1 || loading}
+                                disabled={
+                                    currentPage >= totalPages - 1 || loading
+                                }
                                 onClick={() => setCurrentPage((p) => p + 1)}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                                 title="Trang sau"
@@ -393,7 +460,9 @@ export default function AdminInventoryPage() {
                                     type="number"
                                     min="0"
                                     value={quantity}
-                                    onChange={(event) => setQuantity(Number(event.target.value))}
+                                    onChange={(event) =>
+                                        setQuantity(Number(event.target.value))
+                                    }
                                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none transition focus:border-indigo-500 focus:bg-white"
                                 />
                             </label>
@@ -401,9 +470,13 @@ export default function AdminInventoryPage() {
                             {mode === "restock" && (
                                 <p className="text-xs text-slate-500">
                                     Hiện tại đang có:{" "}
-                                    <strong className="text-slate-800">{editingItem.availableQuantity}</strong> đơn vị. Sau khi nhập sẽ có:{" "}
+                                    <strong className="text-slate-800">
+                                        {editingItem.availableQuantity}
+                                    </strong>{" "}
+                                    đơn vị. Sau khi nhập sẽ có:{" "}
                                     <strong className="text-emerald-600 font-extrabold">
-                                        {editingItem.availableQuantity + Math.max(0, quantity)}
+                                        {editingItem.availableQuantity +
+                                            Math.max(0, quantity)}
                                     </strong>{" "}
                                     đơn vị.
                                 </p>

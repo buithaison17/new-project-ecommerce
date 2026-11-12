@@ -11,9 +11,10 @@ import {
     Loader2,
     ExternalLink,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { aiChatService } from "../../service/aiChatService";
-import { catalogService } from "../../service/catalogService";
+import { useAuthStore } from "../../store/authStore";
+import { extractAndFetchSuggestedProducts } from "../../lib/aiHelper";
 import { formatProductImageUrl } from "../../lib/image";
 import type { AiChatMessage, SuggestedProduct, AiMessageWithProducts } from "../../types/ai";
 
@@ -38,6 +39,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function ChatAIPage() {
     const navigate = useNavigate();
+    const { accessToken } = useAuthStore();
     const [messages, setMessages] = useState<AiMessageWithProducts[]>(INITIAL_MESSAGES);
     const [inputValue, setInputValue] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -66,13 +68,17 @@ export default function ChatAIPage() {
         });
     };
 
-    // Gọi API lấy lịch sử chat khi component mount
+    // Gọi API lấy lịch sử chat khi component mount hoặc khi đăng nhập
     useEffect(() => {
+        const token = accessToken || localStorage.getItem("accessToken");
+        if (!token) return;
+
+        let isMounted = true;
         const fetchHistory = async () => {
             setIsLoadingHistory(true);
             try {
                 const history = await aiChatService.getHistory();
-                if (Array.isArray(history) && history.length > 0) {
+                if (isMounted && Array.isArray(history) && history.length > 0) {
                     const mappedMessages: AiMessageWithProducts[] = history.map((item: AiChatMessage) => ({
                         id: `history-${item.id}`,
                         sender: item.role === "assistant" ? "ai" : "user",
@@ -84,129 +90,15 @@ export default function ChatAIPage() {
             } catch (error) {
                 console.error("Lỗi khi tải lịch sử chat AI:", error);
             } finally {
-                setIsLoadingHistory(false);
+                if (isMounted) setIsLoadingHistory(false);
             }
         };
 
         fetchHistory();
-    }, []);
-
-    // Parser trích xuất thông tin sản phẩm và fetch từ CatalogService
-    const extractAndFetchSuggestedProducts = async (
-        aiResponseText: string,
-        userPrompt: string
-    ): Promise<SuggestedProduct[]> => {
-        try {
-            // 1. Kiểm tra JSON embedded trong response (vd ```json [...] ``` hoặc [{...}])
-            const jsonBlockMatch = aiResponseText.match(
-                /```(?:json)?\s*(\[[\s\S]*?\]|\{[\s\S]*?\})\s*```/
-            );
-            if (jsonBlockMatch) {
-                try {
-                    const parsed = JSON.parse(jsonBlockMatch[1]);
-                    const rawItems = Array.isArray(parsed)
-                        ? parsed
-                        : parsed.products || parsed.items;
-                    if (Array.isArray(rawItems) && rawItems.length > 0) {
-                        return rawItems.map((p: any) => ({
-                            id: Number(p.id),
-                            name: p.name || `Sản phẩm #${p.id}`,
-                            price: Number(p.price) || 0,
-                            imageUrl: p.imageUrl || p.thumbnailUrl || null,
-                            categoryName: p.categoryName || null,
-                        }));
-                    }
-                } catch {
-                    // ignore
-                }
-            }
-
-            // 2. Kiểm tra pattern đặc biệt: [PRODUCT_ID: 1] hoặc ID: 1 hoặc SP: 1
-            const idMatches = Array.from(
-                aiResponseText.matchAll(/(?:PRODUCT_ID|ID|Mã SP|SP)[:#\s]+(\d+)/gi)
-            );
-            if (idMatches.length > 0) {
-                const productIds = Array.from(
-                    new Set(idMatches.map((m) => Number(m[1])))
-                ).filter((id) => !isNaN(id));
-                if (productIds.length > 0) {
-                    const productsRes = await catalogService.getProducts({ size: 50 });
-                    const matched = (productsRes.content || []).filter((p) =>
-                        productIds.includes(p.id)
-                    );
-                    if (matched.length > 0) {
-                        return matched.map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                            price: p.price,
-                            imageUrl: p.thumbnailUrl,
-                            categoryName: p.categoryName,
-                        }));
-                    }
-                }
-            }
-
-            // 3. Phân tích intent tìm kiếm và từ khóa sản phẩm từ câu hỏi và câu trả lời
-            const queryKeywords = [
-                "smartphone",
-                "điện thoại",
-                "laptop",
-                "tai nghe",
-                "balo",
-                "sách",
-                "chuột",
-                "bàn phím",
-                "đồng hồ",
-                "kindle",
-                "máy đọc sách",
-                "bút",
-                "máy tính",
-            ];
-            const promptLower = (userPrompt + " " + aiResponseText).toLowerCase();
-
-            let matchedKeyword: string | undefined = undefined;
-            for (const kw of queryKeywords) {
-                if (promptLower.includes(kw)) {
-                    matchedKeyword = kw;
-                    break;
-                }
-            }
-
-            const hasSearchIntent =
-                matchedKeyword !== undefined ||
-                promptLower.includes("gợi ý") ||
-                promptLower.includes("tìm") ||
-                promptLower.includes("mua") ||
-                promptLower.includes("sản phẩm") ||
-                promptLower.includes("giá");
-
-            if (hasSearchIntent) {
-                const searchParam =
-                    matchedKeyword ||
-                    (userPrompt.trim().length < 30 ? userPrompt.trim() : undefined);
-                const productsRes = await catalogService.getProducts({
-                    keyword: searchParam,
-                    size: 3,
-                });
-                if (
-                    productsRes &&
-                    productsRes.content &&
-                    productsRes.content.length > 0
-                ) {
-                    return productsRes.content.slice(0, 3).map((p) => ({
-                        id: p.id,
-                        name: p.name,
-                        price: p.price,
-                        imageUrl: p.thumbnailUrl,
-                        categoryName: p.categoryName,
-                    }));
-                }
-            }
-        } catch (err) {
-            console.warn("Lỗi khi tìm kiếm sản phẩm đề xuất:", err);
-        }
-        return [];
-    };
+        return () => {
+            isMounted = false;
+        };
+    }, [accessToken]);
 
     // Tự động cuộn xuống cuối danh sách tin nhắn khi có tin nhắn mới hoặc đang gõ
     const scrollToBottom = () => {
@@ -238,15 +130,13 @@ export default function ChatAIPage() {
         setInputValue("");
         setIsTyping(true);
 
-        const token =
-            localStorage.getItem("accessToken") ||
-            localStorage.getItem("token");
+        const currentToken = accessToken || localStorage.getItem("accessToken");
 
-        if (!token) {
+        if (!currentToken) {
             const aiMessage: AiMessageWithProducts = {
                 id: `ai-${Date.now()}`,
                 sender: "ai",
-                text: "Bạn vui lòng đăng nhập tài khoản ShopNova để có thể trò chuyện cùng trợ lý AI nhé! ✨",
+                text: "Bạn vui lòng đăng nhập tài khoản ShopNova để có thể trò chuyện và được trợ lý AI hỗ trợ tốt nhất nhé! ✨",
                 timestamp: new Date().toLocaleTimeString("vi-VN", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -259,6 +149,7 @@ export default function ChatAIPage() {
 
         const aiMsgId = `ai-${Date.now()}`;
         let fullResponseText = "";
+        let isSuccess = false;
 
         try {
             // Gọi API backend stream SSE: POST /api/v1/ai/chat
@@ -285,6 +176,7 @@ export default function ChatAIPage() {
                     }
                 });
             });
+            isSuccess = true;
         } catch (error: any) {
             console.error("Lỗi khi chat với AI:", error);
             let errorMessage =
@@ -292,6 +184,8 @@ export default function ChatAIPage() {
             if (error?.message === "UNAUTHORIZED") {
                 errorMessage =
                     "Phiên đăng nhập đã hết hạn hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại để tiếp tục trò chuyện.";
+            } else if (error?.message) {
+                errorMessage = error.message;
             }
             fullResponseText = errorMessage;
             setMessages((prev) => {
@@ -317,8 +211,8 @@ export default function ChatAIPage() {
             setIsTyping(false);
         }
 
-        // Đề xuất sản phẩm từ nội dung phản hồi AI và câu hỏi người dùng
-        if (fullResponseText) {
+        // Đề xuất sản phẩm từ nội dung phản hồi AI và câu hỏi người dùng khi phản hồi thành công
+        if (isSuccess && fullResponseText) {
             let suggestedProducts: SuggestedProduct[] = [];
             try {
                 setIsSearchingProducts(true);
@@ -447,6 +341,18 @@ export default function ChatAIPage() {
                                             <div className="whitespace-pre-wrap text-sm leading-relaxed">
                                                 {msg.text}
                                             </div>
+
+                                            {/* Nút hành động đăng nhập nếu phiên hết hạn hoặc chưa đăng nhập */}
+                                            {!isUser && msg.text.includes("đăng nhập") && (
+                                                <div className="mt-3 pt-2.5 border-t border-slate-700/60">
+                                                    <Link
+                                                        to="/login"
+                                                        className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer"
+                                                    >
+                                                        <User size={13} /> Đăng nhập ngay
+                                                    </Link>
+                                                </div>
+                                            )}
 
                                             {/* Suggested Products */}
                                             {!isUser && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (

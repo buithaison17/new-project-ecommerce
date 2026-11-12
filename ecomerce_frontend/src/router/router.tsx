@@ -19,8 +19,8 @@ import AdminCategoriesPage from "../pages/admin/AdminCategoriesPage";
 import AdminProductsPage from "../pages/admin/AdminProductsPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminFlashSalePage from "../pages/admin/AdminFlashSalePage";
-import OrdersPage from "../pages/user/OrdersPage";
 import ProtectedRoute from "./ProtectedRoute";
+import OrdersPage from "../pages/user/OrdersPage";
 
 export const router = createBrowserRouter([
     // Các trang dành cho khách hàng
@@ -60,8 +60,7 @@ export const router = createBrowserRouter([
                 path: "/orders",
                 element: (
                     <ProtectedRoute role="CUSTOMER">
-                         <OrdersPage />
-
+                        <OrdersPage />
                     </ProtectedRoute>
                 ),
             },

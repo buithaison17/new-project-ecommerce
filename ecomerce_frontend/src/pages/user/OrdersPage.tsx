@@ -346,17 +346,19 @@ export default function OrdersPage() {
 
                                         {/* Thanh nút hành động ở chân đơn hàng */}
                                         <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-4">
-                                            {/* Nút tiếp tục thanh toán cho các đơn chưa thanh toán */}
-                                            {ord.paymentStatus !== "COMPLETED" && ord.orderStatus !== "CANCELLED" && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleContinuePayment(ord)}
-                                                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
-                                                >
-                                                    <CreditCard size={15} />
-                                                    Tiếp tục thanh toán
-                                                </button>
-                                            )}
+                                            {/* Nút tiếp tục thanh toán cho các đơn chưa thanh toán với phương thức thẻ */}
+                                            {ord.paymentStatus !== "COMPLETED" &&
+                                                ord.orderStatus !== "CANCELLED" &&
+                                                ord.paymentMethod === "CREDIT_CARD" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleContinuePayment(ord)}
+                                                        className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                                                    >
+                                                        <CreditCard size={15} />
+                                                        Tiếp tục thanh toán
+                                                    </button>
+                                                )}
 
                                             <button
                                                 type="button"
