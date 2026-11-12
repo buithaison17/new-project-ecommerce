@@ -35,7 +35,7 @@ export default function AdminInventoryPage() {
     );
 
     // Phân trang
-    const [currentPage, setCurrentPage] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(15);
     const [totalPages, setTotalPages] = useState(1);
     const [totalElements, setTotalElements] = useState(0);
