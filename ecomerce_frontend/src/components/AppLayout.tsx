@@ -64,12 +64,37 @@ export default function AppLayout() {
             .catch(() => undefined);
     }, []);
 
-    // Close menus on route change
+    // Close menus on route change & sync search keyword from URL
     useEffect(() => {
         setMobileMenuOpen(false);
         setProfileOpen(false);
         setCatalogOpen(false);
-    }, [location.pathname]);
+        const params = new URLSearchParams(location.search);
+        setKeyword(params.get("keyword") || "");
+    }, [location.pathname, location.search]);
+
+    // Close open header popovers with Escape key
+    useEffect(() => {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setCatalogOpen(false);
+                setProfileOpen(false);
+                setMobileMenuOpen(false);
+            }
+        };
+        document.addEventListener("keydown", handleEscape);
+        return () => document.removeEventListener("keydown", handleEscape);
+    }, []);
+
+    const currentCategoryId = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        return params.get("categoryId") || "";
+    }, [location.search]);
+
+    const isCategoryActive = location.pathname === "/products" && Boolean(currentCategoryId);
+    const isAllProductsActive = location.pathname === "/products" && !currentCategoryId;
+    const isFlashSaleActive = location.pathname === "/flash-sale";
+    const isOrdersActive = location.pathname.startsWith("/orders");
 
     // Close catalog dropdown when clicking outside
     useEffect(() => {
@@ -183,8 +208,8 @@ export default function AppLayout() {
                             <button
                                 type="button"
                                 onClick={() => setCatalogOpen((open) => !open)}
-                                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                                    catalogOpen
+                                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition cursor-pointer ${
+                                    catalogOpen || isCategoryActive
                                         ? "bg-indigo-50 text-indigo-600"
                                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                                 }`}
@@ -211,15 +236,23 @@ export default function AppLayout() {
 
                         <Link
                             to="/products"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isAllProductsActive
+                                    ? "bg-indigo-50 text-indigo-600"
+                                    : "text-slate-700 hover:bg-slate-100 hover:text-indigo-600"
+                            }`}
                         >
                             Tất cả sản phẩm
                         </Link>
                         <Link
                             to="/flash-sale"
-                            className="relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition hover:bg-slate-100 hover:text-rose-600 text-rose-600"
+                            className={`relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isFlashSaleActive
+                                    ? "bg-rose-50 text-rose-700"
+                                    : "text-rose-600 hover:bg-rose-50/70 hover:text-rose-700"
+                            }`}
                         >
-                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600" : "text-rose-500"} />
                             <span>Flash Sale</span>
                             {activeSales.length > 0 && (
                                 <span className="ml-1 inline-flex items-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-black text-white shadow-xs">
@@ -229,7 +262,11 @@ export default function AppLayout() {
                         </Link>
                         <Link
                             to="/orders"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isOrdersActive
+                                    ? "bg-indigo-50 text-indigo-600"
+                                    : "text-slate-700 hover:bg-slate-100 hover:text-indigo-600"
+                            }`}
                         >
                             Đơn mua
                         </Link>
@@ -563,31 +600,31 @@ export default function AppLayout() {
                             </ul>
                         </div>
 
-                        {/* Column 3: Hỗ trợ khách hàng */}
+                        {/* Column 3: Cam kết dịch vụ */}
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-100">
-                                Trợ giúp & Chính sách
+                                Cam kết dịch vụ
                             </h4>
                             <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Chính sách bảo hành
-                                    </span>
+                                    <Link to="/products" className="hover:text-indigo-400 transition">
+                                        Sản phẩm chính hãng 100%
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Chính sách đổi trả 30 ngày
-                                    </span>
+                                    <Link to="/orders" className="hover:text-indigo-400 transition">
+                                        Đổi trả linh hoạt 30 ngày
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Vận chuyển & giao nhận
-                                    </span>
+                                    <Link to="/cart" className="hover:text-indigo-400 transition">
+                                        Miễn phí vận chuyển đơn 500k
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Bảo mật thông tin
-                                    </span>
+                                    <Link to="/chat-ai" className="hover:text-indigo-400 transition">
+                                        Tư vấn chọn sản phẩm AI 24/7
+                                    </Link>
                                 </li>
                             </ul>
                         </div>
@@ -623,7 +660,7 @@ export default function AppLayout() {
                             <span className="inline-flex items-center gap-1.5 text-emerald-400">
                                 <Shield size={14} /> Bảo mật SSL 256-bit
                             </span>
-                            <span>Thiết kế tiêu chuẩn UI/UX Pro Max</span>
+                            <span>Hỗ trợ xuất hóa đơn VAT điện tử</span>
                         </div>
                     </div>
                 </div>
@@ -870,7 +907,7 @@ function CategoryMegaMenu({
                                         <p className="truncate text-[11px] font-bold text-slate-800 hover:text-indigo-600">
                                             {p.name}
                                         </p>
-                                        <p className="text-[10px] font-black text-rose-600">
+                                        <p className="text-[10px] font-black tabular-nums text-rose-600">
                                             {Number(p.price).toLocaleString("vi-VN")}đ
                                         </p>
                                     </div>
@@ -881,13 +918,15 @@ function CategoryMegaMenu({
                 )}
 
                 {activeCategory && (
-                    <Link
-                        to={`/products?categoryId=${activeCategory.id}`}
-                        onClick={onNavigate}
-                        className="mt-auto pt-4 inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
-                    >
-                        Xem tất cả sản phẩm thuộc danh mục <ChevronRight size={14} />
-                    </Link>
+                    <div className="mt-auto pt-4">
+                        <Link
+                            to={`/products?categoryId=${activeCategory.id}`}
+                            onClick={onNavigate}
+                            className="inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
+                        >
+                            Xem tất cả sản phẩm thuộc danh mục <ChevronRight size={14} />
+                        </Link>
+                    </div>
                 )}
             </div>
         </div>

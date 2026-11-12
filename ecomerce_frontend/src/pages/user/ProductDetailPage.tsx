@@ -4,17 +4,20 @@ import {
     ChevronRight,
     Flame,
     Maximize2,
+    Minus,
     PackageCheck,
+    Plus,
     RotateCcw,
     ShieldCheck,
     ShoppingCart,
     Timer,
     Truck,
     X,
+    Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { formatProductImageUrl } from "../../lib/image";
 import { catalogService } from "../../service/catalogService";
 import { useCartStore } from "../../store/cartStore";
@@ -30,9 +33,11 @@ const formatPrice = (price: number) =>
 
 export default function ProductDetailPage() {
     const { id = "" } = useParams();
+    const navigate = useNavigate();
     const [product, setProduct] = useState<Product | null>(null);
     const [error, setError] = useState("");
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [quantity, setQuantity] = useState(1);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
     const addItem = useCartStore((state) => state.addItem);
@@ -74,6 +79,7 @@ export default function ProductDetailPage() {
         setProduct(null);
         setError("");
         setActiveImageIndex(0);
+        setQuantity(1);
         setIsLightboxOpen(false);
 
         catalogService
@@ -185,16 +191,29 @@ export default function ProductDetailPage() {
     const currentImageUrl = productImages[activeImageIndex] || productImages[0];
 
     const handleAddToCart = () => {
-        if (!product) return;
-        if (flashInfo.isFlashSale) {
-            addItem({
+        if (!product || !product.inStock) return;
+        const unitPrice = flashInfo.isFlashSale ? flashInfo.salePrice : product.price;
+        addItem(
+            {
                 ...product,
-                price: flashInfo.salePrice,
-            });
-        } else {
-            addItem(product);
-        }
-        toast.success(`Đã thêm "${product.name}" vào giỏ hàng`);
+                price: unitPrice,
+            },
+            quantity,
+        );
+        toast.success(`Đã thêm ${quantity} "${product.name}" vào giỏ hàng`);
+    };
+
+    const handleBuyNow = () => {
+        if (!product || !product.inStock) return;
+        const unitPrice = flashInfo.isFlashSale ? flashInfo.salePrice : product.price;
+        addItem(
+            {
+                ...product,
+                price: unitPrice,
+            },
+            quantity,
+        );
+        navigate("/checkout");
     };
 
     return (
@@ -373,19 +392,19 @@ export default function ProductDetailPage() {
                                     <Flame size={13} /> Giá Flash Sale
                                 </p>
                                 <div className="mt-1 flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-slate-400 line-through sm:text-base">
+                                    <span className="text-sm font-semibold tabular-nums text-slate-400 line-through sm:text-base">
                                         {formatPrice(product.price)}
                                     </span>
-                                    <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-black text-white shadow-xs">
+                                    <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-black tabular-nums text-white shadow-xs">
                                         -{flashInfo.discountPercent}%
                                     </span>
                                 </div>
                                 <div className="mt-0.5">
-                                    <p className="text-3xl font-black text-rose-600">
+                                    <p className="text-3xl font-black tabular-nums text-rose-600">
                                         {formatPrice(flashInfo.salePrice)}
                                     </p>
                                 </div>
-                                <p className="mt-1 text-xs font-semibold text-rose-700">
+                                <p className="mt-1 text-xs font-semibold tabular-nums text-rose-700">
                                     Tiết kiệm ngay: {formatPrice(product.price - flashInfo.salePrice)}
                                 </p>
                             </div>
@@ -394,14 +413,14 @@ export default function ProductDetailPage() {
                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                                     Giá niêm yết
                                 </p>
-                                <p className="text-3xl font-black text-indigo-600 mt-0.5">
+                                <p className="text-3xl font-black tabular-nums text-indigo-600 mt-0.5">
                                     {formatPrice(product.price)}
                                 </p>
                             </div>
                         )}
 
                         <span
-                            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tabular-nums ${
                                 product.inStock
                                     ? "bg-emerald-100 text-emerald-800"
                                     : "bg-rose-100 text-rose-800"
@@ -409,7 +428,7 @@ export default function ProductDetailPage() {
                         >
                             <span
                                 className={`h-2 w-2 rounded-full ${
-                                    product.inStock ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                                    product.inStock ? "bg-emerald-500" : "bg-rose-500"
                                 }`}
                             />
                             {product.inStock
@@ -418,25 +437,64 @@ export default function ProductDetailPage() {
                         </span>
                     </div>
 
-                    {/* Actions */}
-                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                        <button
-                            type="button"
-                            disabled={!product.inStock}
-                            onClick={handleAddToCart}
-                            className="flex-1 inline-flex items-center justify-center gap-2.5 rounded-xl bg-indigo-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                        >
-                            <ShoppingCart size={18} />
-                            {product.inStock
-                                ? "Thêm vào giỏ hàng"
-                                : "Sản phẩm tạm hết hàng"}
-                        </button>
-                        <Link
-                            to="/cart"
-                            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                        >
-                            Xem giỏ hàng
-                        </Link>
+                    {/* Quantity Selector & Actions */}
+                    <div className="mt-6 space-y-3">
+                        {product.inStock && (
+                            <div className="flex items-center gap-4">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    Số lượng
+                                </span>
+                                <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                                        disabled={quantity <= 1}
+                                        aria-label="Giảm số lượng"
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                                    >
+                                        <Minus size={15} />
+                                    </button>
+                                    <span className="w-11 text-center text-sm font-bold tabular-nums text-slate-900">
+                                        {quantity}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setQuantity((q) => Math.min(product.stockQuantity, q + 1))}
+                                        disabled={quantity >= product.stockQuantity}
+                                        aria-label="Tăng số lượng"
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                                    >
+                                        <Plus size={15} />
+                                    </button>
+                                </div>
+                                <span className="text-xs text-slate-400 tabular-nums">
+                                    Tối đa {product.stockQuantity} sản phẩm
+                                </span>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <button
+                                type="button"
+                                disabled={!product.inStock}
+                                onClick={handleAddToCart}
+                                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-3.5 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100 active:scale-[0.99] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
+                            >
+                                <ShoppingCart size={18} />
+                                {product.inStock
+                                    ? "Thêm vào giỏ hàng"
+                                    : "Sản phẩm tạm hết hàng"}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!product.inStock}
+                                onClick={handleBuyNow}
+                                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none cursor-pointer"
+                            >
+                                <Zap size={18} />
+                                Mua ngay
+                            </button>
+                        </div>
                     </div>
 
                     {/* Stock Status Box */}
