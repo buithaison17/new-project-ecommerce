@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { aiChatService } from "../service/aiChatService";
-import { catalogService } from "../service/catalogService";
+import { useAuthStore } from "../store/authStore";
+import { extractAndFetchSuggestedProducts } from "../lib/aiHelper";
 import { formatProductImageUrl } from "../lib/image";
 import type { AiChatMessage, SuggestedProduct, AiMessageWithProducts } from "../types/ai";
 
@@ -38,6 +39,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function AIChatWidget() {
     const navigate = useNavigate();
+    const { accessToken } = useAuthStore();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AiMessageWithProducts[]>(INITIAL_MESSAGES);
     const [inputValue, setInputValue] = useState("");
@@ -67,18 +69,19 @@ export default function AIChatWidget() {
         });
     };
 
-    // Tải lịch sử chat khi mở widget lần đầu
+    // Tải lịch sử chat khi mở widget hoặc khi trạng thái đăng nhập thay đổi
     useEffect(() => {
         if (!isOpen) return;
 
-        const fetchHistory = async () => {
-            const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-            if (!token) return;
+        const token = accessToken || localStorage.getItem("accessToken");
+        if (!token) return;
 
+        let isMounted = true;
+        const fetchHistory = async () => {
             setIsLoadingHistory(true);
             try {
                 const history = await aiChatService.getHistory();
-                if (Array.isArray(history) && history.length > 0) {
+                if (isMounted && Array.isArray(history) && history.length > 0) {
                     const mappedMessages: AiMessageWithProducts[] = history.map((item: AiChatMessage) => ({
                         id: `widget-history-${item.id}`,
                         sender: item.role === "assistant" ? "ai" : "user",
@@ -90,12 +93,15 @@ export default function AIChatWidget() {
             } catch (error) {
                 console.error("Lỗi tải lịch sử chat:", error);
             } finally {
-                setIsLoadingHistory(false);
+                if (isMounted) setIsLoadingHistory(false);
             }
         };
 
         void fetchHistory();
-    }, [isOpen]);
+        return () => {
+            isMounted = false;
+        };
+    }, [isOpen, accessToken]);
 
     // Cuộn xuống cuối khi có tin nhắn mới hoặc đang gõ
     const scrollToBottom = () => {
@@ -116,123 +122,6 @@ export default function AIChatWidget() {
             }, 150);
         }
     }, [isOpen]);
-
-    // Parser trích xuất thông tin sản phẩm và fetch từ CatalogService
-    const extractAndFetchSuggestedProducts = async (
-        aiResponseText: string,
-        userPrompt: string
-    ): Promise<SuggestedProduct[]> => {
-        try {
-            // 1. Kiểm tra JSON embedded trong response (vd ```json [...] ``` hoặc [{...}])
-            const jsonBlockMatch = aiResponseText.match(
-                /```(?:json)?\s*(\[[\s\S]*?\]|\{[\s\S]*?\})\s*```/
-            );
-            if (jsonBlockMatch) {
-                try {
-                    const parsed = JSON.parse(jsonBlockMatch[1]);
-                    const rawItems = Array.isArray(parsed)
-                        ? parsed
-                        : parsed.products || parsed.items;
-                    if (Array.isArray(rawItems) && rawItems.length > 0) {
-                        return rawItems.map((p: any) => ({
-                            id: Number(p.id),
-                            name: p.name || `Sản phẩm #${p.id}`,
-                            price: Number(p.price) || 0,
-                            imageUrl: p.imageUrl || p.thumbnailUrl || null,
-                            categoryName: p.categoryName || null,
-                        }));
-                    }
-                } catch {
-                    // ignore JSON parse error
-                }
-            }
-
-            // 2. Kiểm tra pattern đặc biệt: [PRODUCT_ID: 1] hoặc ID: 1 hoặc SP: 1
-            const idMatches = Array.from(
-                aiResponseText.matchAll(/(?:PRODUCT_ID|ID|Mã SP|SP)[:#\s]+(\d+)/gi)
-            );
-            if (idMatches.length > 0) {
-                const productIds = Array.from(
-                    new Set(idMatches.map((m) => Number(m[1])))
-                ).filter((id) => !isNaN(id));
-                if (productIds.length > 0) {
-                    const productsRes = await catalogService.getProducts({ size: 50 });
-                    const matched = (productsRes.content || []).filter((p) =>
-                        productIds.includes(p.id)
-                    );
-                    if (matched.length > 0) {
-                        return matched.map((p) => ({
-                            id: p.id,
-                            name: p.name,
-                            price: p.price,
-                            imageUrl: p.thumbnailUrl,
-                            categoryName: p.categoryName,
-                        }));
-                    }
-                }
-            }
-
-            // 3. Phân tích intent tìm kiếm và từ khóa sản phẩm từ câu hỏi và câu trả lời
-            const queryKeywords = [
-                "smartphone",
-                "điện thoại",
-                "laptop",
-                "tai nghe",
-                "balo",
-                "sách",
-                "chuột",
-                "bàn phím",
-                "đồng hồ",
-                "kindle",
-                "máy đọc sách",
-                "bút",
-                "máy tính",
-            ];
-            const promptLower = (userPrompt + " " + aiResponseText).toLowerCase();
-
-            let matchedKeyword: string | undefined = undefined;
-            for (const kw of queryKeywords) {
-                if (promptLower.includes(kw)) {
-                    matchedKeyword = kw;
-                    break;
-                }
-            }
-
-            const hasSearchIntent =
-                matchedKeyword !== undefined ||
-                promptLower.includes("gợi ý") ||
-                promptLower.includes("tìm") ||
-                promptLower.includes("mua") ||
-                promptLower.includes("sản phẩm") ||
-                promptLower.includes("giá");
-
-            if (hasSearchIntent) {
-                const searchParam =
-                    matchedKeyword ||
-                    (userPrompt.trim().length < 30 ? userPrompt.trim() : undefined);
-                const productsRes = await catalogService.getProducts({
-                    keyword: searchParam,
-                    size: 3,
-                });
-                if (
-                    productsRes &&
-                    productsRes.content &&
-                    productsRes.content.length > 0
-                ) {
-                    return productsRes.content.slice(0, 3).map((p) => ({
-                        id: p.id,
-                        name: p.name,
-                        price: p.price,
-                        imageUrl: p.thumbnailUrl,
-                        categoryName: p.categoryName,
-                    }));
-                }
-            }
-        } catch (err) {
-            console.warn("Lỗi khi tìm kiếm sản phẩm đề xuất:", err);
-        }
-        return [];
-    };
 
     // Xử lý gửi tin nhắn
     const handleSendMessage = async (textToSend?: string) => {
@@ -255,15 +144,13 @@ export default function AIChatWidget() {
         setInputValue("");
         setIsTyping(true);
 
-        const token =
-            localStorage.getItem("accessToken") ||
-            localStorage.getItem("token");
+        const currentToken = accessToken || localStorage.getItem("accessToken");
 
-        if (!token) {
+        if (!currentToken) {
             const aiMessage: AiMessageWithProducts = {
                 id: `ai-${Date.now()}`,
                 sender: "ai",
-                text: "Bạn vui lòng đăng nhập tài khoản ShopNova để có thể trò chuyện cùng trợ lý AI nhé! ✨",
+                text: "Bạn vui lòng đăng nhập tài khoản ShopNova để có thể trò chuyện và được trợ lý AI hỗ trợ tốt nhất nhé! ✨",
                 timestamp: new Date().toLocaleTimeString("vi-VN", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -276,6 +163,7 @@ export default function AIChatWidget() {
 
         const aiMsgId = `ai-${Date.now()}`;
         let fullResponseText = "";
+        let isSuccess = false;
 
         try {
             // Gọi API backend stream SSE: POST /api/v1/ai/chat
@@ -302,6 +190,7 @@ export default function AIChatWidget() {
                     }
                 });
             });
+            isSuccess = true;
         } catch (error: any) {
             console.error("Lỗi khi chat với AI:", error);
             let errorMessage =
@@ -309,6 +198,8 @@ export default function AIChatWidget() {
             if (error?.message === "UNAUTHORIZED") {
                 errorMessage =
                     "Phiên đăng nhập đã hết hạn hoặc bạn chưa đăng nhập. Vui lòng đăng nhập lại để tiếp tục trò chuyện.";
+            } else if (error?.message) {
+                errorMessage = error.message;
             }
             fullResponseText = errorMessage;
             setMessages((prev) => {
@@ -334,8 +225,8 @@ export default function AIChatWidget() {
             setIsTyping(false);
         }
 
-        // Đề xuất sản phẩm từ nội dung phản hồi AI và câu hỏi người dùng
-        if (fullResponseText) {
+        // Đề xuất sản phẩm từ nội dung phản hồi AI và câu hỏi người dùng khi phản hồi thành công
+        if (isSuccess && fullResponseText) {
             let suggestedProducts: SuggestedProduct[] = [];
             try {
                 setIsSearchingProducts(true);
@@ -461,6 +352,19 @@ export default function AIChatWidget() {
                                                 <div className="whitespace-pre-wrap leading-relaxed">
                                                     {msg.text}
                                                 </div>
+
+                                                {/* Nút hành động đăng nhập trực tiếp nếu chưa đăng nhập hoặc hết phiên */}
+                                                {!isUser && msg.text.includes("đăng nhập") && (
+                                                    <div className="mt-2.5 pt-2 border-t border-slate-700/60">
+                                                        <Link
+                                                            to="/login"
+                                                            onClick={() => setIsOpen(false)}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-indigo-500 transition cursor-pointer"
+                                                        >
+                                                            <User size={12} /> Đăng nhập ngay
+                                                        </Link>
+                                                    </div>
+                                                )}
 
                                                 {/* Danh sách sản phẩm đề xuất từ AI */}
                                                 {msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
