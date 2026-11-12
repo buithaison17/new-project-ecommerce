@@ -19,7 +19,6 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 
-/** Chat với AI (OpenRouter - Gemini), stream SSE. Yêu cầu đăng nhập. */
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor

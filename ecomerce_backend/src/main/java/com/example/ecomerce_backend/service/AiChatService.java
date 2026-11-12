@@ -7,6 +7,7 @@ import com.example.ecomerce_backend.model.entity.User;
 import com.example.ecomerce_backend.repository.AiChatMessageRepository;
 import com.example.ecomerce_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -23,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AiChatService {
 
@@ -50,7 +52,7 @@ public class AiChatService {
             getMyOrders/getOrderDetail/cancelOrder. Luôn hỏi rõ nếu thiếu thông tin cần thiết.
             """;
 
-    private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final int MAX_HISTORY_MESSAGES = 10;
 
     private final ChatClient.Builder chatClientBuilder;
     private final AiChatMessageRepository chatMessageRepository;
@@ -83,6 +85,13 @@ public class AiChatService {
                         chatMessageRepository.save(AiChatMessage.builder()
                                 .user(user).role("assistant").content(fullReply.toString()).build());
                     }
+                })
+                .onErrorResume(e -> {
+                    log.error("AI chat stream lỗi cho user {}: {}", userId, e.getMessage(), e);
+                    String fallback = "Xin lỗi, trợ lý AI đang gặp sự cố. Vui lòng thử lại sau ít phút.";
+                    chatMessageRepository.save(AiChatMessage.builder()
+                            .user(user).role("assistant").content(fallback).build());
+                    return Flux.just(fallback);
                 });
     }
 
