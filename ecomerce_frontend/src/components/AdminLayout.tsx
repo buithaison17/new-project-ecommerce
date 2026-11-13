@@ -1,8 +1,10 @@
 import {
+    AlertTriangle,
     ArrowUpRight,
     Bell,
     Boxes,
     ChevronDown,
+    Clock,
     FolderTree,
     LayoutDashboard,
     LogOut,
@@ -17,28 +19,120 @@ import {
     X,
     Zap,
 } from "lucide-react";
-import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { adminService } from "../service/adminService";
 import { useAuthStore } from "../store/authStore";
 import { formatProductImageUrl } from "../lib/image";
+import type { DashboardSummaryResponse } from "../types/admin";
 
 const navigation = [
-    { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
-    { to: "/admin/orders", label: "Quản lý đơn hàng", icon: ReceiptText },
-    { to: "/admin/categories", label: "Danh mục sản phẩm", icon: FolderTree },
-    { to: "/admin/products", label: "Danh sách sản phẩm", icon: Package },
-    { to: "/admin/inventory", label: "Kiểm soát tồn kho", icon: Boxes },
-    { to: "/admin/users", label: "Quản lý người dùng", icon: Users },
-    { to: "/admin/flash-sales", label: "Flash Sale", icon: Zap },
+    { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true, keywords: "tong quan dashboard doanh thu kpi" },
+    { to: "/admin/orders", label: "Quản lý đơn hàng", icon: ReceiptText, keywords: "don hang order giao hang thanh toan" },
+    { to: "/admin/categories", label: "Danh mục sản phẩm", icon: FolderTree, keywords: "danh muc category hang thuong hieu" },
+    { to: "/admin/products", label: "Danh sách sản phẩm", icon: Package, keywords: "san pham product gia anh" },
+    { to: "/admin/inventory", label: "Kiểm soát tồn kho", icon: Boxes, keywords: "ton kho nhap hang sap het" },
+    { to: "/admin/users", label: "Quản lý người dùng", icon: Users, keywords: "nguoi dung khach hang tai khoan" },
+    { to: "/admin/flash-sales", label: "Flash Sale", icon: Zap, keywords: "flash sale giam gia khuyen mai" },
 ];
 
 export default function AdminLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [notifyOpen, setNotifyOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchFocused, setSearchFocused] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
+    const searchRef = useRef<HTMLDivElement>(null);
+    const notifyRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuthStore();
+
+    const fetchAlerts = useCallback(() => {
+        adminService
+            .getDashboardSummary()
+            .then(setSummary)
+            .catch(() => undefined);
+    }, []);
+
+    useEffect(() => {
+        fetchAlerts();
+        const onSync = () => fetchAlerts();
+        window.addEventListener("admin_refresh_data", onSync);
+        window.addEventListener("order_status_changed", onSync);
+        return () => {
+            window.removeEventListener("admin_refresh_data", onSync);
+            window.removeEventListener("order_status_changed", onSync);
+        };
+    }, [fetchAlerts]);
+
+    useEffect(() => {
+        setProfileOpen(false);
+        setNotifyOpen(false);
+        setSearchFocused(false);
+        setSidebarOpen(false);
+    }, [location.pathname, location.search]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (searchRef.current && !searchRef.current.contains(target)) {
+                setSearchFocused(false);
+            }
+            if (notifyRef.current && !notifyRef.current.contains(target)) {
+                setNotifyOpen(false);
+            }
+            if (profileRef.current && !profileRef.current.contains(target)) {
+                setProfileOpen(false);
+            }
+        };
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setSearchFocused(false);
+                setNotifyOpen(false);
+                setProfileOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleEscape);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleEscape);
+        };
+    }, []);
+
+    const matchedNavItems = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return [];
+        return navigation.filter(
+            (item) =>
+                item.label.toLowerCase().includes(q) ||
+                item.keywords.includes(q),
+        );
+    }, [searchQuery]);
+
+    const pendingOrdersCount = summary?.ordersByStatus?.PENDING || 0;
+    const lowStockCount = summary?.lowStockProducts || 0;
+    const outOfStockCount = summary?.outOfStockProducts || 0;
+    const totalAlerts = (pendingOrdersCount > 0 ? 1 : 0) + (lowStockCount > 0 ? 1 : 0) + (outOfStockCount > 0 ? 1 : 0);
+
+    const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const q = searchQuery.trim();
+        if (!q) return;
+        setSearchFocused(false);
+        if (matchedNavItems.length === 1 && !/^\d+$/.test(q)) {
+            navigate(matchedNavItems[0].to);
+            setSearchQuery("");
+            return;
+        }
+        navigate(`/admin/orders?search=${encodeURIComponent(q)}`);
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -179,12 +273,70 @@ export default function AdminLayout() {
                     </button>
 
                     {/* Search bar in topbar */}
-                    <div className="hidden max-w-md flex-1 items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 md:flex">
-                        <Search size={16} className="text-slate-400" />
-                        <input
-                            className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none placeholder:text-slate-400"
-                            placeholder="Tra cứu nhanh đơn hàng, sản phẩm, khách hàng..."
-                        />
+                    <div ref={searchRef} className="relative hidden max-w-md flex-1 md:block">
+                        <form
+                            onSubmit={handleSearchSubmit}
+                            className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 transition focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100"
+                        >
+                            <Search size={16} className="text-slate-400 shrink-0" />
+                            <input
+                                value={searchQuery}
+                                onFocus={() => setSearchFocused(true)}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setSearchFocused(true);
+                                }}
+                                className="w-full bg-transparent text-xs font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                                placeholder="Tìm nhanh đơn hàng (#ID, SĐT) hoặc trang quản trị..."
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery("")}
+                                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                    aria-label="Xóa tìm kiếm"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </form>
+
+                        {searchFocused && searchQuery.trim() && (
+                            <div className="absolute left-0 right-0 top-full mt-2 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-2 shadow-xl">
+                                {matchedNavItems.map(({ to, label, icon: Icon }) => (
+                                    <button
+                                        key={to}
+                                        type="button"
+                                        onClick={() => {
+                                            navigate(to);
+                                            setSearchFocused(false);
+                                            setSearchQuery("");
+                                        }}
+                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer"
+                                    >
+                                        <span className="flex items-center gap-2.5">
+                                            <Icon size={15} className="text-indigo-500" />
+                                            Đi tới: {label}
+                                        </span>
+                                        <ArrowUpRight size={13} className="text-slate-400" />
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigate(`/admin/orders?search=${encodeURIComponent(searchQuery.trim())}`);
+                                        setSearchFocused(false);
+                                    }}
+                                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-bold text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <Search size={14} />
+                                        Tra cứu đơn hàng khớp "{searchQuery.trim()}"
+                                    </span>
+                                    <span className="text-[10px] font-medium text-slate-400">Enter ↵</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions right */}
@@ -219,17 +371,81 @@ export default function AdminLayout() {
                             <Store size={14} className="text-indigo-500" /> Xem gian hàng
                         </Link>
 
-                        <button
-                            type="button"
-                            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100"
-                            aria-label="Thông báo"
-                        >
-                            <Bell size={18} />
-                            <span className="absolute right-2.5 top-2.5 flex h-2 w-2 rounded-full bg-indigo-600 ring-2 ring-white animate-pulse" />
-                        </button>
+                        <div ref={notifyRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setNotifyOpen((o) => !o)}
+                                aria-expanded={notifyOpen}
+                                className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition cursor-pointer ${
+                                    notifyOpen
+                                        ? "border-indigo-300 bg-indigo-50 text-indigo-600"
+                                        : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                                }`}
+                                aria-label="Cảnh báo vận hành"
+                            >
+                                <Bell size={18} />
+                                {totalAlerts > 0 && (
+                                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-black tabular-nums text-white ring-2 ring-white">
+                                        {totalAlerts}
+                                    </span>
+                                )}
+                            </button>
+
+                            {notifyOpen && (
+                                <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl z-50">
+                                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/70">
+                                        <p className="text-xs font-extrabold text-slate-900">
+                                            Cảnh báo vận hành
+                                        </p>
+                                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700 tabular-nums">
+                                            {totalAlerts} mục cần chú ý
+                                        </span>
+                                    </div>
+                                    <div className="divide-y divide-slate-100 p-2">
+                                        <Link
+                                            to="/admin/orders?status=PENDING"
+                                            onClick={() => setNotifyOpen(false)}
+                                            className="flex items-start gap-3 rounded-xl p-2.5 transition hover:bg-slate-50"
+                                        >
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                                <Clock size={16} />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-bold text-slate-900">
+                                                    Đơn hàng chờ xác nhận
+                                                </p>
+                                                <p className="text-[11px] text-slate-500 tabular-nums">
+                                                    {pendingOrdersCount > 0
+                                                        ? `Hiện có ${pendingOrdersCount} đơn đang chờ duyệt`
+                                                        : "Tất cả đơn hàng đã được xử lý"}
+                                                </p>
+                                            </div>
+                                        </Link>
+
+                                        <Link
+                                            to="/admin/inventory?filter=low"
+                                            onClick={() => setNotifyOpen(false)}
+                                            className="flex items-start gap-3 rounded-xl p-2.5 transition hover:bg-slate-50"
+                                        >
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                                                <AlertTriangle size={16} />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-bold text-slate-900">
+                                                    Cảnh báo tồn kho thấp
+                                                </p>
+                                                <p className="text-[11px] text-slate-500 tabular-nums">
+                                                    {lowStockCount} mã sắp hết • {outOfStockCount} mã hết hàng
+                                                </p>
+                                            </div>
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Profile dropdown */}
-                        <div className="relative">
+                        <div ref={profileRef} className="relative">
                             <button
                                 type="button"
                                 className="flex items-center gap-2.5 rounded-xl border border-slate-200/90 p-1.5 pr-3 transition hover:bg-slate-100 hover:border-slate-300"
@@ -292,8 +508,8 @@ export default function AdminLayout() {
 
                     {/* Animated Loading Bar during refresh */}
                     {isRefreshing && (
-                        <div className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden bg-indigo-100">
-                            <div className="h-full w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 animate-pulse" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden bg-indigo-100">
+                            <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-600 animate-shimmer-bar" />
                         </div>
                     )}
                 </header>

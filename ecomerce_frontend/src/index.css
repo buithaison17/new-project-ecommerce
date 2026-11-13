@@ -56,3 +56,54 @@
   transform: translateY(-4px);
   box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.1), 0 8px 10px -6px rgba(99, 102, 241, 0.08);
 }
+
+/* Shimmer loading bar animation */
+@keyframes shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-shimmer-bar {
+  animation: shimmer-slide 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes flash-page-enter {
+  0% {
+    opacity: 0.35;
+    transform: translateX(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-flash-enter {
+  animation: flash-page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flash-progress-fill {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+.animate-flash-progress {
+  transform-origin: left center;
+  animation: flash-progress-fill 4.5s linear forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

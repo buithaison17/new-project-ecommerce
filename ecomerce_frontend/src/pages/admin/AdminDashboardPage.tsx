@@ -1,22 +1,37 @@
 import {
     AlertTriangle,
     ArrowRight,
+    BarChart3,
     Boxes,
     CheckCircle2,
     CircleDollarSign,
     Clock,
     PackageCheck,
+    Percent,
     ReceiptText,
     RefreshCw,
     TrendingUp,
     Truck,
+    Users,
     XCircle,
+    Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import {
+    CategoryAnalyticsChart,
+    InventoryHealthChart,
+    OrderStatusDonutChart,
+    PaymentAndRevenueChart,
+    formatCompactVnd,
+    type OrderStatusSegment,
+} from "../../components/admin/DashboardCharts";
 import { adminService } from "../../service/adminService";
-import type { DashboardSummaryResponse, InventoryItem } from "../../types/admin";
+import { catalogService } from "../../service/catalogService";
+import type { AdminOrder, DashboardSummaryResponse, InventoryItem } from "../../types/admin";
+import type { Category, ProductSummary } from "../../types/catalog";
+import type { FlashSaleResponse } from "../../types/flashSale";
 
 const currency = new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -28,8 +43,14 @@ const numberFormatter = new Intl.NumberFormat("vi-VN");
 export default function AdminDashboardPage() {
     const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
     const [items, setItems] = useState<InventoryItem[]>([]);
+    const [orders, setOrders] = useState<AdminOrder[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [products, setProducts] = useState<ProductSummary[]>([]);
+    const [totalUsers, setTotalUsers] = useState<number>(0);
+    const [flashSales, setFlashSales] = useState<FlashSaleResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<string>("");
 
     const loadData = (showToast = false) => {
         setLoading(true);
@@ -37,28 +58,87 @@ export default function AdminDashboardPage() {
 
         Promise.allSettled([
             adminService.getDashboardSummary(),
-            adminService.getInventories(),
+            adminService.getInventories(false, 0, 100),
+            adminService.getOrders(1),
+            catalogService.getCategories(),
+            catalogService.getProducts({ size: 100 }),
+            adminService.getUsers(undefined, undefined, 1, 1),
+            adminService.getFlashSales(undefined, undefined, 0, 20),
         ])
-            .then(([summaryRes, inventoriesRes]) => {
-                if (summaryRes.status === "fulfilled") {
-                    setSummary(summaryRes.value);
-                } else {
-                    console.warn("Không tải được dashboard summary:", summaryRes.reason);
-                }
-
-                if (inventoriesRes.status === "fulfilled") {
-                    setItems(inventoriesRes.value.content || []);
-                } else {
-                    console.warn("Không tải được inventories:", inventoriesRes.reason);
-                    if (summaryRes.status === "rejected") {
-                        setHasError(true);
+            .then(
+                async ([
+                    summaryRes,
+                    inventoriesRes,
+                    ordersRes,
+                    categoriesRes,
+                    productsRes,
+                    usersRes,
+                    flashSalesRes,
+                ]) => {
+                    if (summaryRes.status === "fulfilled") {
+                        setSummary(summaryRes.value);
+                    } else {
+                        console.warn("Không tải được dashboard summary:", summaryRes.reason);
                     }
-                }
 
-                if (showToast) {
-                    toast.success("Làm mới dữ liệu tổng quan thành công!", { id: "dashboard-reload" });
-                }
-            })
+                    if (inventoriesRes.status === "fulfilled") {
+                        setItems(inventoriesRes.value.content || []);
+                    } else {
+                        console.warn("Không tải được inventories:", inventoriesRes.reason);
+                        if (summaryRes.status === "rejected") {
+                            setHasError(true);
+                        }
+                    }
+
+                    if (ordersRes.status === "fulfilled") {
+                        let collectedOrders = [...(ordersRes.value.content || [])];
+                        const extraPages = Math.min(ordersRes.value.totalPages || 1, 3);
+                        if (extraPages > 1) {
+                            const pageResults = await Promise.allSettled(
+                                Array.from({ length: extraPages - 1 }, (_, i) =>
+                                    adminService.getOrders(i + 2),
+                                ),
+                            );
+                            for (const res of pageResults) {
+                                if (res.status === "fulfilled" && res.value.content?.length) {
+                                    collectedOrders = collectedOrders.concat(res.value.content);
+                                }
+                            }
+                        }
+                        setOrders(collectedOrders);
+                    }
+
+                    if (categoriesRes.status === "fulfilled") {
+                        setCategories(categoriesRes.value || []);
+                    }
+
+                    if (productsRes.status === "fulfilled") {
+                        setProducts(productsRes.value.content || []);
+                    }
+
+                    if (usersRes.status === "fulfilled") {
+                        setTotalUsers(usersRes.value.totalElements ?? 0);
+                    }
+
+                    if (flashSalesRes.status === "fulfilled") {
+                        setFlashSales(flashSalesRes.value.content || []);
+                    }
+
+                    setLastUpdatedAt(
+                        new Date().toLocaleTimeString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                        }),
+                    );
+
+                    if (showToast) {
+                        toast.success("Làm mới dữ liệu tổng quan thành công!", {
+                            id: "dashboard-reload",
+                        });
+                    }
+                },
+            )
             .finally(() => {
                 setLoading(false);
             });
@@ -123,7 +203,7 @@ export default function AdminDashboardPage() {
 
         return [
             {
-                status: "PENDING",
+                status: "PENDING" as const,
                 label: "Chờ xác nhận",
                 count: pending,
                 percent: Math.round((pending / total) * 100),
@@ -132,9 +212,12 @@ export default function AdminDashboardPage() {
                 bgColor: "bg-amber-50/70",
                 borderColor: "border-amber-200/80",
                 barColor: "bg-amber-500",
+                strokeColor: "#f59e0b",
+                dotClass: "bg-amber-500",
+                badgeClass: "bg-amber-100 text-amber-700",
             },
             {
-                status: "SHIPPED",
+                status: "SHIPPED" as const,
                 label: "Đang giao hàng",
                 count: shipped,
                 percent: Math.round((shipped / total) * 100),
@@ -143,9 +226,12 @@ export default function AdminDashboardPage() {
                 bgColor: "bg-blue-50/70",
                 borderColor: "border-blue-200/80",
                 barColor: "bg-blue-500",
+                strokeColor: "#3b82f6",
+                dotClass: "bg-blue-500",
+                badgeClass: "bg-blue-100 text-blue-700",
             },
             {
-                status: "DELIVERED",
+                status: "DELIVERED" as const,
                 label: "Đã giao thành công",
                 count: delivered,
                 percent: Math.round((delivered / total) * 100),
@@ -154,9 +240,12 @@ export default function AdminDashboardPage() {
                 bgColor: "bg-emerald-50/70",
                 borderColor: "border-emerald-200/80",
                 barColor: "bg-emerald-500",
+                strokeColor: "#10b981",
+                dotClass: "bg-emerald-500",
+                badgeClass: "bg-emerald-100 text-emerald-700",
             },
             {
-                status: "CANCELLED",
+                status: "CANCELLED" as const,
                 label: "Đã hủy",
                 count: cancelled,
                 percent: Math.round((cancelled / total) * 100),
@@ -165,9 +254,76 @@ export default function AdminDashboardPage() {
                 bgColor: "bg-rose-50/70",
                 borderColor: "border-rose-200/80",
                 barColor: "bg-rose-500",
+                strokeColor: "#f43f5e",
+                dotClass: "bg-rose-500",
+                badgeClass: "bg-rose-100 text-rose-700",
             },
         ];
     }, [summary, overview.totalOrders]);
+
+    const chartSegments: OrderStatusSegment[] = useMemo(
+        () =>
+            ordersByStatus.map((item) => ({
+                status: item.status,
+                label: item.label,
+                count: item.count,
+                percent: item.percent,
+                strokeColor: item.strokeColor,
+                dotClass: item.dotClass,
+                badgeClass: item.badgeClass,
+            })),
+        [ordersByStatus],
+    );
+
+    const operationalStats = useMemo(() => {
+        const deliveredEntry = ordersByStatus.find((s) => s.status === "DELIVERED");
+        const cancelledEntry = ordersByStatus.find((s) => s.status === "CANCELLED");
+        const deliveredCount = deliveredEntry?.count ?? 0;
+        const cancelledCount = cancelledEntry?.count ?? 0;
+        const totalOrdersCount = overview.totalOrders || 0;
+
+        const nonCancelledOrders = orders.filter((o) => o.orderStatus !== "CANCELLED");
+        const sampledSum = nonCancelledOrders.reduce(
+            (sum, o) => sum + Number(o.finalAmount ?? o.totalAmount ?? 0),
+            0,
+        );
+
+        const avgOrderValue =
+            deliveredCount > 0 && overview.totalRevenue > 0
+                ? Math.round(overview.totalRevenue / deliveredCount)
+                : nonCancelledOrders.length > 0
+                  ? Math.round(sampledSum / nonCancelledOrders.length)
+                  : 0;
+
+        const completionRate =
+            totalOrdersCount > 0 ? Math.round((deliveredCount / totalOrdersCount) * 100) : 0;
+        const cancelRate =
+            totalOrdersCount > 0 ? Math.round((cancelledCount / totalOrdersCount) * 100) : 0;
+
+        const estimatedInventoryValue = products.reduce(
+            (sum, prod) =>
+                sum + Math.max(0, Number(prod.price || 0)) * Math.max(0, Number(prod.stockQuantity || 0)),
+            0,
+        );
+
+        const now = Date.now();
+        const runningFlashSalesCount = flashSales.filter(
+            (sale) =>
+                sale.isRunning ||
+                (sale.isActive &&
+                    now >= new Date(sale.startAt).getTime() &&
+                    now <= new Date(sale.endAt).getTime()),
+        ).length;
+
+        return {
+            avgOrderValue,
+            completionRate,
+            cancelRate,
+            estimatedInventoryValue,
+            runningFlashSalesCount,
+            totalFlashSalesCount: flashSales.length,
+        };
+    }, [ordersByStatus, overview.totalOrders, overview.totalRevenue, orders, products, flashSales]);
 
     const cards = [
         {
@@ -219,7 +375,12 @@ export default function AdminDashboardPage() {
                         Số liệu doanh thu, phân bổ đơn hàng và tồn kho đồng bộ thời gian thực.
                     </p>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                    {lastUpdatedAt && (
+                        <span className="hidden text-[11px] font-semibold tabular-nums text-slate-400 md:inline">
+                            Đồng bộ lúc {lastUpdatedAt}
+                        </span>
+                    )}
                     <button
                         type="button"
                         onClick={() => loadData(true)}
@@ -256,9 +417,13 @@ export default function AdminDashboardPage() {
                                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                     {label}
                                 </p>
-                                <p className="mt-2 text-2xl font-black text-slate-900 xl:text-3xl">
-                                    {loading ? "—" : value}
-                                </p>
+                                {loading ? (
+                                    <div className="mt-2.5 h-8 w-28 animate-pulse rounded-lg bg-slate-100" />
+                                ) : (
+                                    <p className="mt-2 text-2xl font-black tabular-nums text-slate-900 xl:text-3xl">
+                                        {value}
+                                    </p>
+                                )}
                             </div>
                             <span
                                 className={`flex h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}
@@ -273,14 +438,124 @@ export default function AdminDashboardPage() {
                 ))}
             </section>
 
-            {/* Orders Status Distribution */}
+            {/* Secondary Operational Metrics */}
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <article className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-2xs">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                        <BarChart3 size={18} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            Giá trị đơn TB (AOV)
+                        </p>
+                        <p className="truncate text-base font-black tabular-nums text-slate-900">
+                            {loading ? "—" : currency.format(operationalStats.avgOrderValue)}
+                        </p>
+                    </div>
+                </article>
+
+                <article className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-2xs">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                        <Percent size={18} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            Tỷ lệ hoàn tất đơn
+                        </p>
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-base font-black tabular-nums text-emerald-700">
+                                {loading ? "—" : `${operationalStats.completionRate}%`}
+                            </p>
+                            <span className="text-[11px] font-semibold tabular-nums text-rose-500">
+                                Hủy {loading ? "—" : `${operationalStats.cancelRate}%`}
+                            </span>
+                        </div>
+                    </div>
+                </article>
+
+                <article
+                    className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-2xs"
+                    title={currency.format(operationalStats.estimatedInventoryValue)}
+                >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                        <Boxes size={18} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            Tổng giá trị tồn kho
+                        </p>
+                        <p className="truncate text-base font-black tabular-nums text-slate-900">
+                            {loading ? "—" : formatCompactVnd(operationalStats.estimatedInventoryValue)}
+                        </p>
+                    </div>
+                </article>
+
+                <article className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-2xs">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                            <Users size={18} />
+                        </span>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                Thành viên & Flash Sale
+                            </p>
+                            <p className="truncate text-base font-black tabular-nums text-slate-900">
+                                {loading
+                                    ? "—"
+                                    : `${numberFormatter.format(totalUsers)} user`}
+                            </p>
+                        </div>
+                    </div>
+                    <Link
+                        to="/admin/flash-sales"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 text-[11px] font-bold tabular-nums text-rose-600 hover:bg-rose-100 transition"
+                    >
+                        <Zap size={12} />
+                        {operationalStats.runningFlashSalesCount}/{operationalStats.totalFlashSalesCount}
+                    </Link>
+                </article>
+            </section>
+
+            {/* Analytics Charts Row 1: Order Donut + Payment/Revenue */}
+            <section className="grid gap-6 xl:grid-cols-2">
+                <OrderStatusDonutChart
+                    segments={chartSegments}
+                    totalOrders={overview.totalOrders}
+                    ordersToday={overview.ordersToday}
+                    loading={loading}
+                />
+                <PaymentAndRevenueChart
+                    orders={orders}
+                    summary={summary}
+                    loading={loading}
+                />
+            </section>
+
+            {/* Analytics Charts Row 2: Category Distribution + Inventory Health */}
+            <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+                <CategoryAnalyticsChart
+                    categories={categories}
+                    products={products}
+                    loading={loading}
+                />
+                <InventoryHealthChart
+                    items={items}
+                    lowStockThreshold={overview.lowStockThreshold}
+                    lowStockCount={overview.lowStockProducts}
+                    outOfStockCount={overview.outOfStockProducts}
+                    totalProducts={overview.totalProducts}
+                    loading={loading}
+                />
+            </section>
+
+            {/* Orders Status Distribution Quick Cards */}
             <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
                     <div>
                         <h2 className="text-base font-extrabold text-slate-900">
                             Phân bổ trạng thái đơn hàng
                         </h2>
-                        <p className="mt-0.5 text-xs text-slate-500">
+                        <p className="mt-0.5 text-xs text-slate-500 tabular-nums">
                             Tổng cộng {numberFormatter.format(overview.totalOrders)} đơn đặt hàng trong toàn bộ hệ thống
                         </p>
                     </div>
@@ -307,26 +582,26 @@ export default function AdminDashboardPage() {
                         }) => (
                             <Link
                                 key={status}
-                                to="/admin/orders"
+                                to={`/admin/orders?status=${status}`}
                                 className={`block rounded-2xl border ${borderColor} ${bgColor} p-4 transition hover:-translate-y-0.5 hover:shadow-sm`}
                             >
                                 <div className="flex items-center justify-between">
                                     <span className="flex items-center gap-2 text-xs font-bold text-slate-800">
                                         <Icon size={16} className={color} /> {label}
                                     </span>
-                                    <span className={`text-lg font-black ${color}`}>
+                                    <span className={`text-lg font-black tabular-nums ${color}`}>
                                         {loading ? "—" : count}
                                     </span>
                                 </div>
                                 <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
                                     <span>Tỷ trọng</span>
-                                    <span className="font-bold text-slate-800">
+                                    <span className="font-bold tabular-nums text-slate-800">
                                         {loading ? "—" : `${percent}%`}
                                     </span>
                                 </div>
                                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80">
                                     <div
-                                        className={`h-full rounded-full ${barColor}`}
+                                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                                         style={{ width: `${percent}%` }}
                                     />
                                 </div>
@@ -382,7 +657,7 @@ export default function AdminDashboardPage() {
                                     >
                                         {inventory?.productName || "Đang tải dữ liệu..."}
                                     </span>
-                                    <span className="text-xs font-black text-indigo-600">
+                                    <span className="text-xs font-black tabular-nums text-indigo-600">
                                         {inventory
                                             ? `${numberFormatter.format(inventory.availableQuantity)} đơn vị`
                                             : ""}
@@ -409,7 +684,7 @@ export default function AdminDashboardPage() {
                             Quản trị kho & sản phẩm
                         </h2>
                         <p className="mt-2 text-xs leading-relaxed text-indigo-200">
-                            Kiểm soát biến động tồn kho, bổ sung số lượng nhanh chóng và thêm mới sản phẩm tải ảnh trực tiếp từ thiết bị.
+                            Kiểm soát biến động tồn kho, bổ sung số lượng nhanh chóng, cấu hình Flash Sale và cập nhật danh mục sản phẩm.
                         </p>
                     </div>
 
@@ -420,6 +695,13 @@ export default function AdminDashboardPage() {
                         >
                             <span>Thêm sản phẩm mới</span>
                             <ArrowRight size={14} className="text-indigo-300" />
+                        </Link>
+                        <Link
+                            to="/admin/flash-sales"
+                            className="inline-flex items-center justify-between rounded-xl bg-rose-500/20 border border-rose-400/30 px-4 py-3 text-xs font-bold text-rose-100 transition hover:bg-rose-500/30"
+                        >
+                            <span>Quản lý chương trình Flash Sale</span>
+                            <Zap size={14} className="text-amber-300" />
                         </Link>
                         <Link
                             to="/admin/inventory"

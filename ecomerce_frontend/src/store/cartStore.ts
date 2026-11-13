@@ -1,13 +1,22 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem } from "../types/cart";
-import type { Product } from "../types/catalog";
+import type { ProductImage } from "../types/catalog";
 
 import { formatProductImageUrl } from "../lib/image";
 
+export interface CartAddableProduct {
+    id: number;
+    name: string;
+    price: number;
+    stockQuantity: number;
+    thumbnailUrl?: string | null;
+    images?: ProductImage[];
+}
+
 interface CartState {
     items: CartItem[];
-    addItem: (product: Product) => void;
+    addItem: (product: CartAddableProduct, quantity?: number) => void;
     updateQuantity: (productId: number, quantity: number) => void;
     removeItem: (productId: number) => void;
     clearCart: () => void;
@@ -17,12 +26,19 @@ export const useCartStore = create<CartState>()(
     persist(
         (set) => ({
             items: [],
-            addItem: (product) => set((state) => {
+            addItem: (product, quantity = 1) => set((state) => {
+                const safeQty = Math.max(1, quantity);
+                const maxStock = Math.max(1, product.stockQuantity || 1);
                 const existingItem = state.items.find((item) => item.productId === product.id);
                 if (existingItem) {
                     return {
                         items: state.items.map((item) => item.productId === product.id
-                            ? { ...item, quantity: Math.min(item.quantity + 1, item.stockQuantity) }
+                            ? {
+                                ...item,
+                                price: product.price,
+                                stockQuantity: product.stockQuantity,
+                                quantity: Math.min(item.quantity + safeQty, maxStock),
+                            }
                             : item),
                     };
                 }
@@ -34,7 +50,7 @@ export const useCartStore = create<CartState>()(
                         price: product.price,
                         thumbnailUrl: image,
                         stockQuantity: product.stockQuantity,
-                        quantity: 1,
+                        quantity: Math.min(safeQty, maxStock),
                     }],
                 };
             }),

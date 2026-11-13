@@ -1,23 +1,62 @@
 import {
     ArrowRight,
+    Baby,
+    BookOpen,
+    Camera,
     ChevronRight,
     Compass,
+    Dumbbell,
     Flame,
+    Gamepad2,
+    Headphones,
+    Home as HomeIcon,
+    Laptop,
     Layers,
     Percent,
-    Search,
+    ShieldCheck,
+    Shirt,
+    Smartphone,
     Sparkles,
     Timer,
+    Utensils,
+    Watch,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import FlashSaleCard from "../../components/FlashSaleCard";
 import ProductCard from "../../components/ProductCard";
+import { formatProductImageUrl } from "../../lib/image";
 import { catalogService } from "../../service/catalogService";
+import { useAuthStore } from "../../store/authStore";
 import { useFlashSaleStore } from "../../store/flashSaleStore";
 import type { Category, FlashSaleProduct, ProductSummary } from "../../types/catalog";
 
 const pad = (n: number) => String(n).padStart(2, "0");
+
+const formatPrice = (price: number) =>
+    new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+        maximumFractionDigits: 0,
+    }).format(price);
+
+function getCategoryIcon(name: string) {
+    const normalized = name.toLowerCase();
+    if (normalized.includes("điện thoại") || normalized.includes("mobile")) return Smartphone;
+    if (normalized.includes("laptop") || normalized.includes("máy tính")) return Laptop;
+    if (normalized.includes("âm thanh") || normalized.includes("phụ kiện") || normalized.includes("tai nghe")) return Headphones;
+    if (normalized.includes("đồng hồ")) return Watch;
+    if (normalized.includes("thời trang") || normalized.includes("giày") || normalized.includes("túi")) return Shirt;
+    if (normalized.includes("gia dụng") || normalized.includes("nhà cửa") || normalized.includes("nội thất")) return HomeIcon;
+    if (normalized.includes("sách") || normalized.includes("văn phòng")) return BookOpen;
+    if (normalized.includes("mẹ") || normalized.includes("bé") || normalized.includes("đồ chơi")) return Baby;
+    if (normalized.includes("thể thao") || normalized.includes("dã ngoại")) return Dumbbell;
+    if (normalized.includes("làm đẹp") || normalized.includes("mỹ phẩm") || normalized.includes("sức khỏe")) return Sparkles;
+    if (normalized.includes("bách hóa") || normalized.includes("thực phẩm") || normalized.includes("đồ uống")) return Utensils;
+    if (normalized.includes("máy ảnh") || normalized.includes("camera")) return Camera;
+    if (normalized.includes("game") || normalized.includes("gaming")) return Gamepad2;
+    return Compass;
+}
 
 export default function HomePage() {
     const [categories, setCategories] = useState<Category[]>([]);
@@ -26,6 +65,7 @@ export default function HomePage() {
     const [loadingProducts, setLoadingProducts] = useState(true);
     const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
 
+    const user = useAuthStore((s) => s.user);
     const activeSales = useFlashSaleStore((s) => s.activeSales);
     const fetchActiveSales = useFlashSaleStore((s) => s.fetchActiveSales);
 
@@ -75,31 +115,34 @@ export default function HomePage() {
         return () => clearInterval(id);
     }, [flashProducts]);
 
+    const spotlightFlash = flashProducts[0] || null;
+    const spotlightRegular = featuredProducts[0] || null;
+
     return (
         <div className="space-y-16 pb-12">
             {/* HERO SECTION */}
             <section className="relative overflow-hidden bg-slate-950 text-white">
                 {/* Background ambient lighting */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,.4),_transparent_40%),radial-gradient(circle_at_bottom_left,_rgba(139,92,246,.25),_transparent_35%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(99,102,241,.38),_transparent_42%),radial-gradient(circle_at_bottom_left,_rgba(139,92,246,.24),_transparent_35%)]" />
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/60 to-slate-950" />
 
-                <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-12 lg:py-24">
+                <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:py-20">
                     {/* Left text column */}
                     <div className="lg:col-span-7 space-y-6">
                         <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-bold text-indigo-200 backdrop-blur-sm">
-                            <Sparkles size={14} className="text-amber-300" />
-                            <span>Khám phá bộ sưu tập chất lượng 2026</span>
+                            <ShieldCheck size={14} className="text-emerald-400" />
+                            <span>Hệ thống bán lẻ đa ngành hàng chính hãng</span>
                         </div>
 
-                        <h1 className="text-4xl font-black tracking-tight leading-[1.15] sm:text-5xl lg:text-6xl text-white">
-                            Mua sắm thông minh, <br />
+                        <h1 className="text-4xl font-black tracking-tight leading-[1.12] sm:text-5xl lg:text-6xl text-white">
+                            Mua sắm chuẩn xác, <br />
                             <span className="bg-gradient-to-r from-indigo-300 via-indigo-200 to-violet-300 bg-clip-text text-transparent">
-                                trải nghiệm vượt trội.
+                                giá trị xứng tầm.
                             </span>
                         </h1>
 
                         <p className="max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                            ShopNova mang tới hàng ngàn sản phẩm chính hãng với mức giá minh bạch, tồn kho tức thì và dịch vụ chăm sóc khách hàng 24/7.
+                            ShopNova kết nối trực tiếp kho hàng chính hãng đa danh mục — kiểm tra tồn kho theo thời gian thực, niêm yết giá minh bạch và hỗ trợ đổi trả trong 30 ngày.
                         </p>
 
                         <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -107,85 +150,137 @@ export default function HomePage() {
                                 to="/products"
                                 className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/30 transition hover:-translate-y-0.5 hover:from-indigo-600 hover:to-indigo-700 focus:outline-none"
                             >
-                                Khám phá ngay <ArrowRight size={17} />
+                                Khám phá gian hàng <ArrowRight size={17} />
                             </Link>
                             <Link
-                                to="/products?sortBy=createdAt"
-                                className="rounded-xl border border-white/20 bg-white/5 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-xs transition hover:bg-white/10 hover:border-white/40"
+                                to="/flash-sale"
+                                className="inline-flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/15 px-6 py-3.5 text-sm font-bold text-rose-200 backdrop-blur-xs transition hover:bg-rose-500/25 hover:border-rose-400/70"
                             >
-                                Hàng mới cập bến
+                                <Flame size={16} className="text-rose-400" />
+                                Săn Flash Sale
                             </Link>
                         </div>
 
                         {/* Trust highlights */}
                         <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-800/80">
                             <div>
-                                <p className="text-2xl font-black text-indigo-300">10k+</p>
-                                <p className="text-xs text-slate-400">Khách hàng tin chọn</p>
+                                <p className="text-2xl font-black tabular-nums text-indigo-300">
+                                    {categories.length > 0 ? `${categories.length}+` : "12+"}
+                                </p>
+                                <p className="text-xs text-slate-400">Ngành hàng chọn lọc</p>
                             </div>
                             <div>
-                                <p className="text-2xl font-black text-indigo-300">100%</p>
-                                <p className="text-xs text-slate-400">Cam kết chính hãng</p>
+                                <p className="text-2xl font-black tabular-nums text-indigo-300">100%</p>
+                                <p className="text-xs text-slate-400">Hàng chính hãng & VAT</p>
                             </div>
                             <div>
-                                <p className="text-2xl font-black text-indigo-300">24h</p>
-                                <p className="text-xs text-slate-400">Giao hàng siêu tốc</p>
+                                <p className="text-2xl font-black tabular-nums text-indigo-300">30 ngày</p>
+                                <p className="text-xs text-slate-400">Đổi trả miễn phí</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right interactive card preview */}
+                    {/* Right live product / deal spotlight */}
                     <div className="relative mx-auto w-full max-w-md lg:col-span-5">
                         <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-indigo-500/20 to-violet-500/30 blur-2xl" />
-                        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-                            {/* Card badge */}
-                            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                        <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
+                            <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
                                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
-                                    <Flame size={15} /> Bán chạy tuần này
+                                    <Flame size={15} />
+                                    {spotlightFlash ? "Deal nổi bật đang diễn ra" : "Sản phẩm mới lên kệ"}
                                 </span>
-                                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
-                                    Flash Deal
-                                </span>
-                            </div>
-
-                            {/* Quick search promo card */}
-                            <div className="mt-5 rounded-2xl bg-white p-5 text-slate-900 shadow-xl">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                                            ShopNova Express
-                                        </p>
-                                        <p className="text-base font-extrabold text-slate-900 mt-0.5">
-                                            Tìm kiếm & Lọc siêu nhanh
-                                        </p>
-                                    </div>
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                                        <Search size={18} />
+                                {spotlightFlash ? (
+                                    <span className="rounded-full bg-rose-500/90 px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-white">
+                                        -{spotlightFlash.discountPercent}%
                                     </span>
-                                </div>
-
-                                <div className="mt-4 space-y-2">
-                                    <div className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 text-xs">
-                                        <span className="font-semibold text-slate-600">Bộ lọc danh mục</span>
-                                        <span className="font-bold text-indigo-600">Đầy đủ & Trực quan</span>
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 text-xs">
-                                        <span className="font-semibold text-slate-600">Cập nhật kho</span>
-                                        <span className="font-bold text-emerald-600">Thời gian thực</span>
-                                    </div>
-                                    <div className="flex items-center justify-between rounded-xl bg-slate-50 p-2.5 text-xs">
-                                        <span className="font-semibold text-slate-600">Thanh toán</span>
-                                        <span className="font-bold text-slate-800">Bảo mật mã hóa</span>
-                                    </div>
-                                </div>
-
-                                <Link
-                                    to="/products"
-                                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-600"
-                                >
-                                    Xem kho hàng hôm nay <ChevronRight size={14} />
-                                </Link>
+                                ) : (
+                                    <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                                        Sẵn sàng giao
+                                    </span>
+                                )}
                             </div>
+
+                            {spotlightFlash ? (
+                                <div className="mt-4 rounded-2xl bg-white p-4 text-slate-900 shadow-xl">
+                                    <div className="flex items-center gap-4">
+                                        <img
+                                            src={formatProductImageUrl(spotlightFlash.thumbnailUrl)}
+                                            alt={spotlightFlash.name}
+                                            className="h-24 w-24 shrink-0 rounded-2xl border border-slate-100 bg-slate-50 object-cover"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                                                {spotlightFlash.categoryName || "Flash Sale"}
+                                            </span>
+                                            <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+                                                {spotlightFlash.name}
+                                            </h3>
+                                            <div className="mt-2">
+                                                <p className="text-xs font-medium tabular-nums text-slate-400 line-through">
+                                                    {formatPrice(spotlightFlash.price)}
+                                                </p>
+                                                <p className="text-lg font-extrabold tabular-nums text-rose-600 leading-tight">
+                                                    {formatPrice(spotlightFlash.salePrice)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                                        <span className="font-semibold tabular-nums text-slate-500">
+                                            Tồn kho: <strong className="text-slate-800">{spotlightFlash.stockQuantity}</strong>
+                                        </span>
+                                        <Link
+                                            to={`/products/${spotlightFlash.id}`}
+                                            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-rose-700"
+                                        >
+                                            Xem deal ngay <ChevronRight size={14} />
+                                        </Link>
+                                    </div>
+                                </div>
+                            ) : spotlightRegular ? (
+                                <div className="mt-4 rounded-2xl bg-white p-4 text-slate-900 shadow-xl">
+                                    <div className="flex items-center gap-4">
+                                        <img
+                                            src={formatProductImageUrl(spotlightRegular.thumbnailUrl)}
+                                            alt={spotlightRegular.name}
+                                            className="h-24 w-24 shrink-0 rounded-2xl border border-slate-100 bg-slate-50 object-cover"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                                                {spotlightRegular.categoryName || "Sản phẩm mới"}
+                                            </span>
+                                            <h3 className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+                                                {spotlightRegular.name}
+                                            </h3>
+                                            <p className="mt-2 text-lg font-extrabold tabular-nums text-indigo-600">
+                                                {formatPrice(spotlightRegular.price)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                                        <span className="font-semibold tabular-nums text-slate-500">
+                                            Kho: <strong className="text-slate-800">{spotlightRegular.stockQuantity} sản phẩm</strong>
+                                        </span>
+                                        <Link
+                                            to={`/products/${spotlightRegular.id}`}
+                                            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-600"
+                                        >
+                                            Xem chi tiết <ChevronRight size={14} />
+                                        </Link>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="mt-4 rounded-2xl bg-white/95 p-5 shadow-xl space-y-3 animate-pulse">
+                                    <div className="flex gap-4">
+                                        <div className="h-24 w-24 rounded-2xl bg-slate-200" />
+                                        <div className="flex-1 space-y-2 py-1">
+                                            <div className="h-3 w-20 rounded bg-slate-200" />
+                                            <div className="h-4 w-full rounded bg-slate-200" />
+                                            <div className="h-5 w-28 rounded bg-slate-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -222,7 +317,7 @@ export default function HomePage() {
                                     <span className="text-xs font-bold text-rose-300 flex items-center gap-1">
                                         <Timer size={14} /> Kết thúc sau:
                                     </span>
-                                    <div className="flex items-center gap-1 font-mono text-sm font-black text-amber-300">
+                                    <div className="flex items-center gap-1 font-mono text-sm font-black tabular-nums text-amber-300">
                                         <span>{pad(timeLeft.h)}</span>
                                         <span className="text-white">:</span>
                                         <span>{pad(timeLeft.m)}</span>
@@ -270,23 +365,26 @@ export default function HomePage() {
 
                 {categories.length > 0 ? (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                        {categories.map((cat) => (
-                            <Link
-                                key={cat.id}
-                                to={`/products?categoryId=${cat.id}`}
-                                className="group relative flex flex-col items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-5 text-center shadow-xs transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10"
-                            >
-                                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50/80 text-indigo-600 transition group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white">
-                                    <Compass size={24} />
-                                </span>
-                                <h3 className="mt-3.5 text-sm font-bold text-slate-800 transition group-hover:text-indigo-600 line-clamp-1">
-                                    {cat.name}
-                                </h3>
-                                <p className="mt-1 text-[11px] text-slate-400 line-clamp-1">
-                                    {cat.description || "Xem sản phẩm"}
-                                </p>
-                            </Link>
-                        ))}
+                        {categories.map((cat) => {
+                            const CategoryIcon = getCategoryIcon(cat.name);
+                            return (
+                                <Link
+                                    key={cat.id}
+                                    to={`/products?categoryId=${cat.id}`}
+                                    className="group relative flex flex-col items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-5 text-center shadow-xs transition duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10"
+                                >
+                                    <span className="flex h-13 w-13 items-center justify-center rounded-2xl bg-indigo-50/80 text-indigo-600 transition group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white">
+                                        <CategoryIcon size={23} />
+                                    </span>
+                                    <h3 className="mt-3.5 text-sm font-bold text-slate-800 transition group-hover:text-indigo-600 line-clamp-1">
+                                        {cat.name}
+                                    </h3>
+                                    <p className="mt-1 text-[11px] text-slate-400 line-clamp-1">
+                                        {cat.description || "Xem sản phẩm"}
+                                    </p>
+                                </Link>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -362,10 +460,10 @@ export default function HomePage() {
                         </p>
                         <div className="pt-2">
                             <Link
-                                to="/register"
+                                to={user ? "/flash-sale" : "/register"}
                                 className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-slate-900 shadow-md transition hover:bg-indigo-50 focus:outline-none"
                             >
-                                Đăng ký thành viên ngay <ArrowRight size={16} />
+                                {user ? "Săn ưu đãi thành viên ngay" : "Đăng ký thành viên ngay"} <ArrowRight size={16} />
                             </Link>
                         </div>
                     </div>

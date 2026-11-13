@@ -23,10 +23,12 @@ export default function CartPage() {
     const items = useCartStore((state) => state.items);
     const updateQuantity = useCartStore((state) => state.updateQuantity);
     const removeItem = useCartStore((state) => state.removeItem);
+    const clearCart = useCartStore((state) => state.clearCart);
     const total = items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0,
     );
+    const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
 
     if (!items.length) return <EmptyCart />;
 
@@ -38,23 +40,41 @@ export default function CartPage() {
     const isFreeShipping = total >= freeShippingThreshold;
     const remainingForFreeShipping = Math.max(0, freeShippingThreshold - total);
 
+    const handleClearCart = () => {
+        if (window.confirm("Bạn muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?")) {
+            clearCart();
+        }
+    };
+
     return (
         <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <span className="text-xs font-bold uppercase tracking-widest text-indigo-600">
                         Giỏ hàng của bạn
                     </span>
                     <h1 className="text-2xl font-black text-slate-900 sm:text-3xl mt-1">
                         Danh sách sản phẩm ({items.length})
+                        <span className="ml-2 text-sm font-semibold tabular-nums text-slate-500">
+                            • {totalUnits} món
+                        </span>
                     </h1>
                 </div>
-                <Link
-                    to="/products"
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
-                >
-                    Tiếp tục mua sắm &rarr;
-                </Link>
+                <div className="flex items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={handleClearCart}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
+                    >
+                        <Trash2 size={13} /> Xóa tất cả
+                    </button>
+                    <Link
+                        to="/products"
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                    >
+                        Tiếp tục mua sắm &rarr;
+                    </Link>
+                </div>
             </div>
 
             {/* Free Shipping Progress Bar */}
@@ -186,7 +206,7 @@ export default function CartPage() {
                 {/* Summary card */}
                 <OrderSummary
                     total={total}
-                    itemCount={items.length}
+                    itemCount={totalUnits}
                     isFreeShipping={isFreeShipping}
                 />
             </div>
@@ -215,7 +235,7 @@ function OrderSummary({
             <div className="mt-5 space-y-3 border-b border-slate-100 pb-5 text-xs">
                 <div className="flex justify-between text-slate-600">
                     <span>Tạm tính ({itemCount} sản phẩm)</span>
-                    <span className="font-bold text-slate-800">
+                    <span className="font-bold tabular-nums text-slate-800">
                         {formatPrice(total)}
                     </span>
                 </div>
@@ -225,7 +245,7 @@ function OrderSummary({
                         className={
                             isFreeShipping
                                 ? "font-bold text-emerald-600"
-                                : "font-bold text-slate-800"
+                                : "font-bold tabular-nums text-slate-800"
                         }
                     >
                         {isFreeShipping ? "Miễn phí" : formatPrice(shippingFee)}
@@ -242,7 +262,7 @@ function OrderSummary({
                         (Đã bao gồm VAT và vận chuyển)
                     </span>
                 </div>
-                <span className="text-2xl font-black text-indigo-600">
+                <span className="text-2xl font-black tabular-nums text-indigo-600">
                     {formatPrice(finalTotal)}
                 </span>
             </div>

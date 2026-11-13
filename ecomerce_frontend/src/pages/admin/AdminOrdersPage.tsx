@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useSearchParams } from "react-router-dom";
 import OrderDetailModal from "../../components/OrderDetailModal.tsx";
 import { adminService } from "../../service/adminService";
 import { normalizeOrderStatus } from "../../service/orderStatusSync";
@@ -96,6 +97,7 @@ const currency = new Intl.NumberFormat("vi-VN", {
 });
 
 export default function AdminOrdersPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [page, setPage] = useState<PageResponse<AdminOrderExtended>>({
         content: [],
         totalElements: 0,
@@ -104,11 +106,23 @@ export default function AdminOrdersPage() {
         size: 20,
     });
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("");
-    const [search, setSearch] = useState("");
+    const [filter, setFilter] = useState(() => searchParams.get("status") || "");
+    const [search, setSearch] = useState(() => searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(1);
     const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
     const [viewingOrder, setViewingOrder] = useState<AdminOrderExtended | null>(null);
+
+    useEffect(() => {
+        const paramStatus = searchParams.get("status");
+        const paramSearch = searchParams.get("search");
+        if (paramStatus !== null) {
+            setFilter(paramStatus);
+            setCurrentPage(1);
+        }
+        if (paramSearch !== null) {
+            setSearch(paramSearch);
+        }
+    }, [searchParams]);
 
     const loadOrders = useCallback(
         async (targetPage: number, targetFilter: string, showToast = false) => {
@@ -159,6 +173,10 @@ export default function AdminOrdersPage() {
     const handleFilterChange = (val: string) => {
         setFilter(val);
         setCurrentPage(1);
+        const next = new URLSearchParams(searchParams);
+        if (val) next.set("status", val);
+        else next.delete("status");
+        setSearchParams(next, { replace: true });
     };
 
     const updateStatus = async (orderId: number, nextStatus: AdminOrder["orderStatus"]) => {
@@ -590,10 +608,10 @@ export default function AdminOrdersPage() {
 
                                         {/* Tổng tiền */}
                                         <td className="px-6 py-4 align-top">
-                                            <p className="font-extrabold text-slate-900 text-sm">
+                                            <p className="font-extrabold tabular-nums text-slate-900 text-sm">
                                                 {currency.format(order.finalAmount || order.totalAmount || 0)}
                                             </p>
-                                            <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
+                                            <div className="mt-1 space-y-0.5 text-[10px] tabular-nums text-slate-500">
                                                 {typeof order.totalAmount === "number" &&
                                                     order.finalAmount !== order.totalAmount && (
                                                         <p>Tiền hàng: {currency.format(order.totalAmount)}</p>
