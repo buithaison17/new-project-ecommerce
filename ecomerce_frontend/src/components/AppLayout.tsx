@@ -43,11 +43,34 @@ export default function AppLayout() {
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
     const catalogRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLElement>(null);
     const user = useAuthStore((state) => state.user);
     const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser);
     const logout = useAuthStore((state) => state.logout);
     const activeSales = useFlashSaleStore((state) => state.activeSales);
     const fetchActiveSales = useFlashSaleStore((state) => state.fetchActiveSales);
+
+    // Dynamic toast offset so notifications appear directly below the header
+    useEffect(() => {
+        const updateToastTop = () => {
+            if (headerRef.current) {
+                const rect = headerRef.current.getBoundingClientRect();
+                const bottom = Math.max(72, Math.round(rect.bottom));
+                document.documentElement.style.setProperty(
+                    "--toast-top",
+                    `${bottom + 12}px`
+                );
+            }
+        };
+        updateToastTop();
+        window.addEventListener("scroll", updateToastTop, { passive: true });
+        window.addEventListener("resize", updateToastTop, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", updateToastTop);
+            window.removeEventListener("resize", updateToastTop);
+            document.documentElement.style.removeProperty("--toast-top");
+        };
+    }, []);
 
     useEffect(() => {
         loadCurrentUser().catch(() => undefined);
@@ -184,7 +207,10 @@ export default function AppLayout() {
             </div>
 
             {/* Main Sticky Header */}
-            <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-all">
+            <header
+                ref={headerRef}
+                className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-all"
+            >
                 <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
                     {/* Brand Logo */}
                     <Link

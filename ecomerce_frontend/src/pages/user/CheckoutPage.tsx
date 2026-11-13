@@ -1,7 +1,6 @@
 import {
     Check,
     CheckCircle2,
-    CreditCard,
     Edit3,
     FileText,
     Lock,
@@ -700,13 +699,13 @@ export default function CheckoutPage() {
                                 title="Thanh toán khi nhận hàng (COD)"
                                 description="Thanh toán trực tiếp bằng tiền mặt khi shipper giao hàng tới địa chỉ của bạn."
                             />
-                            <PaymentOption
-                                checked={paymentMethod === "CREDIT_CARD"}
-                                onChange={() => setPaymentMethod("CREDIT_CARD")}
-                                icon={CreditCard}
-                                title="Thẻ thanh toán / Thẻ tín dụng"
-                                description="Thanh toán trực tuyến bảo mật qua thẻ quốc tế hoặc cổng thanh toán."
-                            />
+                            {/*<PaymentOption*/}
+                            {/*    checked={paymentMethod === "CREDIT_CARD"}*/}
+                            {/*    onChange={() => setPaymentMethod("CREDIT_CARD")}*/}
+                            {/*    icon={CreditCard}*/}
+                            {/*    title="Thẻ thanh toán / Thẻ tín dụng"*/}
+                            {/*    description="Thanh toán trực tuyến bảo mật qua thẻ quốc tế hoặc cổng thanh toán."*/}
+                            {/*/>*/}
                             <PaymentOption
                                 checked={paymentMethod === "PAYOS"}
                                 onChange={() => setPaymentMethod("PAYOS")}
@@ -715,19 +714,6 @@ export default function CheckoutPage() {
                                 description="Tạo mã QR VietQR và link thanh toán PayOS — xác nhận thanh toán tự động ngay tức thì."
                             />
                         </div>
-                        {paymentMethod === "CREDIT_CARD" && (
-                            <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-xs leading-5 text-indigo-900">
-                                ℹ️ Hệ thống backend sẽ tự động cập nhật trạng thái đơn hàng thành{" "}
-                                <strong>COMPLETED (Đã thanh toán)</strong> ngay sau khi xác nhận đơn.
-                            </div>
-                        )}
-                        {paymentMethod === "PAYOS" && (
-                            <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 text-xs leading-5 text-indigo-900">
-                                ℹ️ Sau khi xác nhận đơn, bạn sẽ được chuyển tới trang thanh toán PayOS để{" "}
-                                <strong>quét mã QR</strong> hoặc <strong>chuyển khoản ngân hàng</strong>.
-                                Đơn hàng sẽ tự động cập nhật khi thanh toán thành công.
-                            </div>
-                        )}
                     </section>
                 </div>
 

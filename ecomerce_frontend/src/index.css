@@ -7,6 +7,10 @@
   --color-accent: #f97316;
 }
 
+:root {
+  --toast-top: 118px;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
