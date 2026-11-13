@@ -200,7 +200,9 @@ export default function ProductDetailPage() {
             },
             quantity,
         );
-        toast.success(`Đã thêm ${quantity} "${product.name}" vào giỏ hàng`);
+        toast.success(`Đã thêm ${quantity} "${product.name}" vào giỏ hàng`, {
+            id: `quick-add-${product.id}`,
+        });
     };
 
     const handleBuyNow = () => {

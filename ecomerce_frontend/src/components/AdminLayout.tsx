@@ -49,9 +49,31 @@ export default function AdminLayout() {
     const searchRef = useRef<HTMLDivElement>(null);
     const notifyRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLElement>(null);
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuthStore();
+
+    useEffect(() => {
+        const updateToastTop = () => {
+            if (headerRef.current) {
+                const rect = headerRef.current.getBoundingClientRect();
+                const bottom = Math.max(72, Math.round(rect.bottom));
+                document.documentElement.style.setProperty(
+                    "--toast-top",
+                    `${bottom + 12}px`
+                );
+            }
+        };
+        updateToastTop();
+        window.addEventListener("scroll", updateToastTop, { passive: true });
+        window.addEventListener("resize", updateToastTop, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", updateToastTop);
+            window.removeEventListener("resize", updateToastTop);
+            document.documentElement.style.removeProperty("--toast-top");
+        };
+    }, []);
 
     const fetchAlerts = useCallback(() => {
         adminService
@@ -261,7 +283,10 @@ export default function AdminLayout() {
             {/* Main Area */}
             <div className="flex flex-col lg:pl-72 min-h-screen">
                 {/* Topbar */}
-                <header className="sticky top-0 z-30 flex h-18 items-center justify-between gap-4 border-b border-slate-200/90 bg-white/90 px-4 sm:px-6 lg:px-8 backdrop-blur-md">
+                <header
+                    ref={headerRef}
+                    className="sticky top-0 z-30 flex h-18 items-center justify-between gap-4 border-b border-slate-200/90 bg-white/90 px-4 sm:px-6 lg:px-8 backdrop-blur-md"
+                >
                     {/* Mobile toggle */}
                     <button
                         type="button"

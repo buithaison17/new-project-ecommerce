@@ -10,6 +10,10 @@ createRoot(document.getElementById("root")!).render(
         <RouterProvider router={router}></RouterProvider>
         <Toaster
             position="top-right"
+            containerStyle={{
+                top: "var(--toast-top, 84px)",
+                right: "max(16px, calc((100vw - 80rem) / 2 + 1.5rem))",
+            }}
             toastOptions={{
                 duration: 3000,
                 style: {
