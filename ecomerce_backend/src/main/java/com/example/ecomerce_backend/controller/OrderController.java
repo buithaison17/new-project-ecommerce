@@ -99,7 +99,7 @@ public class OrderController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<ApiDataResponse<OrderResponse>> cancelOrder(
             @PathVariable Long id,
-            @RequestBody CancelOrderRequest request
+            @RequestBody(required = false) CancelOrderRequest request
     ) {
         return new ResponseEntity<>(new ApiDataResponse<>(
                 true,
