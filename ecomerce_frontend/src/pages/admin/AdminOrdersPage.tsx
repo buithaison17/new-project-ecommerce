@@ -656,9 +656,24 @@ export default function AdminOrdersPage() {
                                                     }
                                                     className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                                                 >
-                                                    <option value="PENDING">Chờ xác nhận</option>
-                                                    <option value="SHIPPED">Đang giao</option>
-                                                    <option value="DELIVERED">Đã giao</option>
+                                                    <option
+                                                        value="PENDING"
+                                                        disabled={order.orderStatus === "SHIPPED"}
+                                                    >
+                                                        Chờ xác nhận
+                                                    </option>
+                                                    <option
+                                                        value="SHIPPED"
+                                                        disabled={order.orderStatus === "DELIVERED" || isCancelled}
+                                                    >
+                                                        Đang giao
+                                                    </option>
+                                                    <option
+                                                        value="DELIVERED"
+                                                        disabled={order.orderStatus === "PENDING" || isCancelled}
+                                                    >
+                                                        Đã giao
+                                                    </option>
                                                     <option
                                                         value="CANCELLED"
                                                         disabled={order.orderStatus !== "PENDING" && !isCancelled}
@@ -673,10 +688,15 @@ export default function AdminOrdersPage() {
                                                     />
                                                 )}
                                             </div>
-                                            {order.orderStatus !== "PENDING" && !isCancelled && !isDelivered && (
+                                            {order.orderStatus === "PENDING" && (
                                                 <span className="block mt-1 text-[10px] text-slate-400">
-                                                        *Chỉ đơn Chờ xác nhận mới có thể hủy
-                                                    </span>
+                                                    *Cần chuyển sang Đang giao trước khi Đã giao
+                                                </span>
+                                            )}
+                                            {order.orderStatus === "SHIPPED" && (
+                                                <span className="block mt-1 text-[10px] text-slate-400">
+                                                    *Đơn đang giao, chỉ có thể cập nhật sang Đã giao
+                                                </span>
                                             )}
                                         </td>
 
