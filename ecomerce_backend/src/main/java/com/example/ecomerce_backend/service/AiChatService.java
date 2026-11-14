@@ -7,6 +7,7 @@ import com.example.ecomerce_backend.model.entity.User;
 import com.example.ecomerce_backend.repository.AiChatMessageRepository;
 import com.example.ecomerce_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -23,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AiChatService {
 
@@ -34,18 +36,29 @@ public class AiChatService {
             Bạn có các tool để tra cứu dữ liệu thực tế của cửa hàng:
             - searchProducts: tìm kiếm sản phẩm theo từ khóa, danh mục, khoảng giá.
             - getActiveFlashSales: xem các chương trình Flash Sale (giảm giá) đang chạy.
+            - getMyOrders: xem danh sách đơn hàng của khách hàng.
+            - getOrderDetail: xem chi tiết một đơn hàng.
+            - placeOrder: tạo đơn hàng mới (COD hoặc thanh toán online).
+            - cancelOrder: hủy đơn hàng đang PENDING.
+            - getDeliveryAddresses: xem địa chỉ giao hàng đã lưu.
+            - createDeliveryAddress: thêm địa chỉ giao hàng mới.
 
             Khi khách hàng hỏi về sản phẩm, giá cả, khuyến mãi, Flash Sale, hãy gọi tool
             tương ứng để lấy dữ liệu thật trước khi trả lời. Không tự bịa thông tin sản phẩm
             hoặc giá cả. Sau khi có kết quả, tóm tắt ngắn gọn và gợi ý sản phẩm phù hợp.
+
+            Khi khách hàng muốn đặt hàng, kiểm tra giỏ hàng/địa chỉ/sản phẩm trước, xác nhận
+            thông tin rồi mới gọi placeOrder. Khi khách hàng muốn xem hoặc hủy đơn, dùng
+            getMyOrders/getOrderDetail/cancelOrder. Luôn hỏi rõ nếu thiếu thông tin cần thiết.
             """;
 
-    private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final int MAX_HISTORY_MESSAGES = 10;
 
     private final ChatClient.Builder chatClientBuilder;
     private final AiChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final CatalogTools catalogTools;
+    private final AiOrderService aiOrderService;
 
     /**
      * Stream câu trả lời của AI (dùng cho SSE). Lưu câu hỏi trước khi stream,
@@ -56,6 +69,7 @@ public class AiChatService {
                 .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
 
         List<Message> messages = buildPromptMessages(userId, request.getMessage());
+        OrderTools orderTools = new OrderTools(user, aiOrderService);
 
         chatMessageRepository.save(AiChatMessage.builder()
                 .user(user).role("user").content(request.getMessage()).build());
@@ -63,7 +77,7 @@ public class AiChatService {
         StringBuilder fullReply = new StringBuilder();
         return chatClientBuilder.build()
                 .prompt(new Prompt(messages))
-                .tools(catalogTools)
+                .tools(catalogTools, orderTools)
                 .stream().content()
                 .doOnNext(s -> fullReply.append(s))
                 .doOnComplete(() -> {
@@ -71,6 +85,13 @@ public class AiChatService {
                         chatMessageRepository.save(AiChatMessage.builder()
                                 .user(user).role("assistant").content(fullReply.toString()).build());
                     }
+                })
+                .onErrorResume(e -> {
+                    log.error("AI chat stream lỗi cho user {}: {}", userId, e.getMessage(), e);
+                    String fallback = "Xin lỗi, trợ lý AI đang gặp sự cố. Vui lòng thử lại sau ít phút.";
+                    chatMessageRepository.save(AiChatMessage.builder()
+                            .user(user).role("assistant").content(fallback).build());
+                    return Flux.just(fallback);
                 });
     }
 

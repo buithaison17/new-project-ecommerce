@@ -16,18 +16,21 @@ import {
     ShieldCheck,
     ShoppingBag,
     Sparkles,
+    Tag,
     Truck,
     X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useFlashSaleStore } from "../store/flashSaleStore";
 import { catalogService } from "../service/catalogService";
-import type { Category } from "../types/catalog";
+import type { Category, ProductSummary } from "../types/catalog";
 import CartButton from "./CartButton";
 import { formatProductImageUrl } from "../lib/image";
+import AIChatWidget from "./AIChatWidget";
+import { getDefaultBrandsForCategory } from "../lib/brandHelper";
 
 export default function AppLayout() {
     const navigate = useNavigate();
@@ -40,11 +43,34 @@ export default function AppLayout() {
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
     const catalogRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+    const headerRef = useRef<HTMLElement>(null);
     const user = useAuthStore((state) => state.user);
     const loadCurrentUser = useAuthStore((state) => state.loadCurrentUser);
     const logout = useAuthStore((state) => state.logout);
     const activeSales = useFlashSaleStore((state) => state.activeSales);
     const fetchActiveSales = useFlashSaleStore((state) => state.fetchActiveSales);
+
+    // Dynamic toast offset so notifications appear directly below the header
+    useEffect(() => {
+        const updateToastTop = () => {
+            if (headerRef.current) {
+                const rect = headerRef.current.getBoundingClientRect();
+                const bottom = Math.max(72, Math.round(rect.bottom));
+                document.documentElement.style.setProperty(
+                    "--toast-top",
+                    `${bottom + 12}px`
+                );
+            }
+        };
+        updateToastTop();
+        window.addEventListener("scroll", updateToastTop, { passive: true });
+        window.addEventListener("resize", updateToastTop, { passive: true });
+        return () => {
+            window.removeEventListener("scroll", updateToastTop);
+            window.removeEventListener("resize", updateToastTop);
+            document.documentElement.style.removeProperty("--toast-top");
+        };
+    }, []);
 
     useEffect(() => {
         loadCurrentUser().catch(() => undefined);
@@ -61,12 +87,37 @@ export default function AppLayout() {
             .catch(() => undefined);
     }, []);
 
-    // Close menus on route change
+    // Close menus on route change & sync search keyword from URL
     useEffect(() => {
         setMobileMenuOpen(false);
         setProfileOpen(false);
         setCatalogOpen(false);
-    }, [location.pathname]);
+        const params = new URLSearchParams(location.search);
+        setKeyword(params.get("keyword") || "");
+    }, [location.pathname, location.search]);
+
+    // Close open header popovers with Escape key
+    useEffect(() => {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setCatalogOpen(false);
+                setProfileOpen(false);
+                setMobileMenuOpen(false);
+            }
+        };
+        document.addEventListener("keydown", handleEscape);
+        return () => document.removeEventListener("keydown", handleEscape);
+    }, []);
+
+    const currentCategoryId = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        return params.get("categoryId") || "";
+    }, [location.search]);
+
+    const isCategoryActive = location.pathname === "/products" && Boolean(currentCategoryId);
+    const isAllProductsActive = location.pathname === "/products" && !currentCategoryId;
+    const isFlashSaleActive = location.pathname === "/flash-sale";
+    const isOrdersActive = location.pathname.startsWith("/orders");
 
     // Close catalog dropdown when clicking outside
     useEffect(() => {
@@ -156,7 +207,10 @@ export default function AppLayout() {
             </div>
 
             {/* Main Sticky Header */}
-            <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-all">
+            <header
+                ref={headerRef}
+                className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md transition-all"
+            >
                 <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
                     {/* Brand Logo */}
                     <Link
@@ -180,8 +234,8 @@ export default function AppLayout() {
                             <button
                                 type="button"
                                 onClick={() => setCatalogOpen((open) => !open)}
-                                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                                    catalogOpen
+                                className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition cursor-pointer ${
+                                    catalogOpen || isCategoryActive
                                         ? "bg-indigo-50 text-indigo-600"
                                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                                 }`}
@@ -208,15 +262,23 @@ export default function AppLayout() {
 
                         <Link
                             to="/products"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isAllProductsActive
+                                    ? "bg-indigo-50 text-indigo-600"
+                                    : "text-slate-700 hover:bg-slate-100 hover:text-indigo-600"
+                            }`}
                         >
                             Tất cả sản phẩm
                         </Link>
                         <Link
                             to="/flash-sale"
-                            className="relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition hover:bg-slate-100 hover:text-rose-600 text-rose-600"
+                            className={`relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isFlashSaleActive
+                                    ? "bg-rose-50 text-rose-700"
+                                    : "text-rose-600 hover:bg-rose-50/70 hover:text-rose-700"
+                            }`}
                         >
-                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600 animate-pulse" : "text-rose-500"} />
+                            <Flame size={16} className={activeSales.length > 0 ? "text-rose-600" : "text-rose-500"} />
                             <span>Flash Sale</span>
                             {activeSales.length > 0 && (
                                 <span className="ml-1 inline-flex items-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-black text-white shadow-xs">
@@ -226,7 +288,11 @@ export default function AppLayout() {
                         </Link>
                         <Link
                             to="/orders"
-                            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-indigo-600"
+                            className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
+                                isOrdersActive
+                                    ? "bg-indigo-50 text-indigo-600"
+                                    : "text-slate-700 hover:bg-slate-100 hover:text-indigo-600"
+                            }`}
                         >
                             Đơn mua
                         </Link>
@@ -560,31 +626,31 @@ export default function AppLayout() {
                             </ul>
                         </div>
 
-                        {/* Column 3: Hỗ trợ khách hàng */}
+                        {/* Column 3: Cam kết dịch vụ */}
                         <div>
                             <h4 className="text-xs font-bold uppercase tracking-widest text-slate-100">
-                                Trợ giúp & Chính sách
+                                Cam kết dịch vụ
                             </h4>
                             <ul className="mt-4 space-y-2.5 text-sm text-slate-400">
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Chính sách bảo hành
-                                    </span>
+                                    <Link to="/products" className="hover:text-indigo-400 transition">
+                                        Sản phẩm chính hãng 100%
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Chính sách đổi trả 30 ngày
-                                    </span>
+                                    <Link to="/orders" className="hover:text-indigo-400 transition">
+                                        Đổi trả linh hoạt 30 ngày
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Vận chuyển & giao nhận
-                                    </span>
+                                    <Link to="/cart" className="hover:text-indigo-400 transition">
+                                        Miễn phí vận chuyển đơn 500k
+                                    </Link>
                                 </li>
                                 <li>
-                                    <span className="hover:text-indigo-400 transition cursor-pointer">
-                                        Bảo mật thông tin
-                                    </span>
+                                    <Link to="/chat-ai" className="hover:text-indigo-400 transition">
+                                        Tư vấn chọn sản phẩm AI 24/7
+                                    </Link>
                                 </li>
                             </ul>
                         </div>
@@ -620,11 +686,14 @@ export default function AppLayout() {
                             <span className="inline-flex items-center gap-1.5 text-emerald-400">
                                 <Shield size={14} /> Bảo mật SSL 256-bit
                             </span>
-                            <span>Thiết kế tiêu chuẩn UI/UX Pro Max</span>
+                            <span>Hỗ trợ xuất hóa đơn VAT điện tử</span>
                         </div>
                     </div>
                 </div>
             </footer>
+
+            {/* AI Chat Widget */}
+            <AIChatWidget />
         </div>
     );
 }
@@ -736,6 +805,35 @@ function CategoryMegaMenu({
     onSelect: (category: Category) => void;
     onNavigate: () => void;
 }) {
+    const [sampleProducts, setSampleProducts] = useState<ProductSummary[]>([]);
+
+    useEffect(() => {
+        if (!activeCategory) return;
+        let cancelled = false;
+        catalogService
+            .getProducts({ categoryId: activeCategory.id, size: 2 })
+            .then((res) => {
+                if (!cancelled) {
+                    setSampleProducts(res.content || []);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSampleProducts([]);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeCategory?.id]);
+
+    const suggestedBrands = useMemo(() => {
+        if (!activeCategory) return [];
+        return activeCategory.brands && activeCategory.brands.length > 0
+            ? activeCategory.brands
+            : getDefaultBrandsForCategory(activeCategory.name);
+    }, [activeCategory]);
+
     if (!categories.length) {
         return (
             <div className="absolute left-0 top-full mt-1 w-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-2xl">
@@ -745,9 +843,9 @@ function CategoryMegaMenu({
     }
 
     return (
-        <div className="absolute left-0 top-full mt-1 z-50 flex w-[680px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-1 z-50 flex w-[720px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
             {/* Sidebar list */}
-            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5 max-h-[460px] overflow-y-auto">
+            <div className="w-56 shrink-0 border-r border-slate-100 bg-slate-50/70 p-2.5 max-h-[480px] overflow-y-auto">
                 <p className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Tất cả danh mục
                 </p>
@@ -782,30 +880,79 @@ function CategoryMegaMenu({
                 <h3 className="mt-1 text-2xl font-black text-slate-900">
                     {activeCategory?.name || "Danh mục"}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600 line-clamp-3">
+                <p className="mt-1.5 text-xs leading-5 text-slate-600 line-clamp-2">
                     {activeCategory?.description ||
                         "Khám phá các sản phẩm chọn lọc hàng đầu với chất lượng cam kết và giá cả cạnh tranh nhất."}
                 </p>
 
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3.5">
-                        <p className="text-xs font-bold text-indigo-700">Đa dạng sản phẩm</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Cập nhật liên tục</p>
+                {/* Gợi ý thương hiệu */}
+                {suggestedBrands.length > 0 && activeCategory && (
+                    <div className="mt-3.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <Tag size={12} className="text-indigo-600" /> Gợi ý hãng:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {suggestedBrands.slice(0, 6).map((b) => (
+                                <Link
+                                    key={b}
+                                    to={`/products?categoryId=${activeCategory.id}&brand=${encodeURIComponent(b)}`}
+                                    onClick={onNavigate}
+                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                                >
+                                    {b}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                    <div className="rounded-xl border border-violet-100 bg-violet-50/70 p-3.5">
-                        <p className="text-xs font-bold text-violet-700">Giá tốt nhất</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Nhiều ưu đãi hấp dẫn</p>
+                )}
+
+                {/* Mẫu tiêu biểu hiển thị ở trên (ảnh nhỏ) */}
+                {sampleProducts.length > 0 && (
+                    <div className="mt-3.5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                            <Flame size={12} className="text-rose-500" /> Mẫu nổi bật:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {sampleProducts.map((p) => (
+                                <Link
+                                    key={p.id}
+                                    to={`/products/${p.id}`}
+                                    onClick={onNavigate}
+                                    className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white/90 p-2 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition"
+                                >
+                                    <img
+                                        src={formatProductImageUrl(p.thumbnailUrl)}
+                                        alt={p.name}
+                                        className="h-10 w-10 shrink-0 rounded-lg object-cover bg-slate-100"
+                                        onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).src =
+                                                "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=60";
+                                        }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[11px] font-bold text-slate-800 hover:text-indigo-600">
+                                            {p.name}
+                                        </p>
+                                        <p className="text-[10px] font-black tabular-nums text-rose-600">
+                                            {Number(p.price).toLocaleString("vi-VN")}đ
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {activeCategory && (
-                    <Link
-                        to={`/products?categoryId=${activeCategory.id}`}
-                        onClick={onNavigate}
-                        className="mt-auto inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
-                    >
-                        Xem sản phẩm thuộc danh mục <ChevronRight size={14} />
-                    </Link>
+                    <div className="mt-auto pt-4">
+                        <Link
+                            to={`/products?categoryId=${activeCategory.id}`}
+                            onClick={onNavigate}
+                            className="inline-flex w-fit items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-600"
+                        >
+                            Xem tất cả sản phẩm thuộc danh mục <ChevronRight size={14} />
+                        </Link>
+                    </div>
                 )}
             </div>
         </div>

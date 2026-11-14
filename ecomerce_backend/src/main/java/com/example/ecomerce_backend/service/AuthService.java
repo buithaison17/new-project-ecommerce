@@ -94,7 +94,7 @@ public class AuthService {
             throw new ResourceExistedException("Email hoặc username đã tồn tại");
         }
         // Tạo tài khoản để đăng nhập
-        Role customerRole = roleRepository.findByName("CUSTOMER").get();
+        Role customerRole = roleRepository.findByName("CUSTOMER").orElseThrow(() -> new ResourceNotFoundException("Role không tồn tại"));
         User user = User.builder().username(request.username()).email(request.email()).password(passwordEncoder.encode(request.password())).role(customerRole).build();
         user = userRepository.save(user);
         // Tạo thông tin tài khoản

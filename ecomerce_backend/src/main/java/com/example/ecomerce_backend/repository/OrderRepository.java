@@ -11,6 +11,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -33,4 +34,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** SELECT ... FOR UPDATE: dùng khi đổi trạng thái đơn để hai request đồng thời không xử lý cùng một đơn. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Order> findWithLockById(Long id);
+
+    @Query("SELECT o FROM Order o WHERE o.paymentMethod = 'CREDIT_CARD' " +
+           "AND o.orderStatus = 'PENDING' " +
+           "AND o.paymentStatus = 'PENDING' " +
+           "AND o.expiredAt IS NOT NULL " +
+           "AND o.expiredAt < :now " +
+           "AND o.isDeleted = false")
+    List<Order> findExpiredOnlinePaymentOrders(java.time.LocalDateTime now);
 }

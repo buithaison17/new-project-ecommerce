@@ -1,6 +1,8 @@
 import { ArrowUpRight, Flame, PackageOpen, ShoppingBag, XCircle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 import { formatProductImageUrl } from "../lib/image";
+import { useCartStore } from "../store/cartStore";
 import { useFlashSaleStore } from "../store/flashSaleStore";
 import type { ProductSummary } from "../types/catalog";
 
@@ -15,15 +17,32 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
     const imageUrl = formatProductImageUrl(product.thumbnailUrl);
     const navigate = useNavigate();
     const getPriceInfo = useFlashSaleStore((state) => state.getPriceInfo);
+    const addItem = useCartStore((state) => state.addItem);
     const flashInfo = getPriceInfo(product);
+    const isLowStock = product.inStock && product.stockQuantity > 0 && product.stockQuantity <= 5;
+
+    const handleQuickAdd = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!product.inStock) return;
+        addItem({
+            id: product.id,
+            name: product.name,
+            price: flashInfo.isFlashSale ? flashInfo.salePrice : product.price,
+            stockQuantity: product.stockQuantity,
+            thumbnailUrl: product.thumbnailUrl,
+        });
+        toast.success(`Đã thêm "${product.name}" vào giỏ hàng`, {
+            id: `quick-add-${product.id}`,
+        });
+    };
 
     return (
-        <div
+        <article
             onClick={() => navigate(`/products/${product.id}`)}
-            className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+            className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                 flashInfo.isFlashSale
-                    ? "border-rose-200 hover:border-rose-400 hover:shadow-rose-500/10"
-                    : "border-slate-200/90 hover:border-indigo-200 hover:shadow-indigo-500/10"
+                    ? "border-rose-200/90 hover:border-rose-400 hover:shadow-rose-500/10"
+                    : "border-slate-200/90 hover:border-indigo-300 hover:shadow-indigo-500/10"
             }`}
         >
             {/* Image container */}
@@ -45,31 +64,30 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
                 {/* Stock & Flash Sale status badge */}
                 <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
                     {flashInfo.isFlashSale && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 px-2.5 py-1 text-[11px] font-black text-white shadow-sm">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-600 to-orange-500 px-2.5 py-1 text-[11px] font-bold tabular-nums text-white shadow-sm">
                             <Flame size={12} />
                             -{flashInfo.discountPercent}%
                         </span>
                     )}
-                    {product.inStock ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-xs">
-                            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                            Còn hàng
-                        </span>
-                    ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-xs">
+                    {!product.inStock ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm backdrop-blur-xs">
                             <XCircle size={12} />
                             Hết hàng
                         </span>
-                    )}
+                    ) : isLowStock ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2.5 py-1 text-[11px] font-bold tabular-nums text-white shadow-sm backdrop-blur-xs">
+                            Chỉ còn {product.stockQuantity}
+                        </span>
+                    ) : null}
                 </div>
 
                 {/* Hover quick action overlay button */}
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 opacity-0 backdrop-blur-[2px] transition duration-300 group-hover:opacity-100">
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-slate-950/15 opacity-0 backdrop-blur-[1px] transition duration-300 group-hover:opacity-100">
                     <span
-                        className={`inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-slate-900 shadow-xl transition ${
+                        className={`inline-flex items-center gap-1.5 rounded-xl bg-white/95 px-3.5 py-2 text-xs font-bold text-slate-900 shadow-lg transition ${
                             flashInfo.isFlashSale
-                                ? "hover:bg-rose-600 hover:text-white"
-                                : "hover:bg-indigo-600 hover:text-white"
+                                ? "group-hover:text-rose-600"
+                                : "group-hover:text-indigo-600"
                         }`}
                     >
                         Xem chi tiết <ArrowUpRight size={14} />
@@ -79,15 +97,15 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
 
             {/* Content info */}
             <div className="flex flex-1 flex-col p-4 sm:p-5">
-                <div className="mb-2 flex items-center justify-between text-xs">
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
                     <span
-                        className={`font-bold uppercase tracking-wider ${
+                        className={`truncate font-bold uppercase tracking-wider text-[11px] ${
                             flashInfo.isFlashSale ? "text-rose-600" : "text-indigo-600"
                         }`}
                     >
                         {product.categoryName || "Sản phẩm"}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="shrink-0 text-[11px] font-medium tabular-nums text-slate-400">
                         {product.inStock
                             ? `Kho: ${product.stockQuantity}`
                             : "Tạm hết"}
@@ -95,63 +113,59 @@ export default function ProductCard({ product }: { product: ProductSummary }) {
                 </div>
 
                 <h3
-                    className={`line-clamp-2 min-h-[44px] text-sm font-bold leading-5 text-slate-800 transition sm:text-base sm:leading-6 ${
+                    className={`line-clamp-2 min-h-[42px] text-sm font-bold leading-5 text-slate-900 transition sm:text-[15px] sm:leading-[21px] ${
                         flashInfo.isFlashSale
                             ? "group-hover:text-rose-600"
                             : "group-hover:text-indigo-600"
                     }`}
                 >
-                    <Link
-                        to={`/products/${product.id}`}
-                        className="focus:outline-none focus:underline"
-                    >
-                        {product.name}
-                    </Link>
+                    {product.name}
                 </h3>
 
                 {/* Price and Action */}
-                <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between gap-2">
-                    <div>
+                <div className="mt-auto pt-3.5 border-t border-slate-100 flex items-end justify-between gap-2">
+                    <div className="min-w-0">
                         {flashInfo.isFlashSale ? (
-                            <>
-                                <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
-                                    <Flame size={12} /> Giá Flash Sale
+                            <div>
+                                <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                                    <Flame size={11} /> Giá Flash Sale
                                 </p>
-                                <div className="flex items-baseline gap-2">
-                                    <p className="text-base font-extrabold text-rose-600 sm:text-lg">
-                                        {formatPrice(flashInfo.salePrice)}
-                                    </p>
-                                    <p className="text-xs font-medium text-slate-400 line-through">
-                                        {formatPrice(flashInfo.originalPrice)}
-                                    </p>
-                                </div>
-                            </>
+                                <p className="text-xs font-medium tabular-nums text-slate-400 line-through">
+                                    {formatPrice(flashInfo.originalPrice)}
+                                </p>
+                                <p className="text-base font-extrabold tabular-nums text-rose-600 sm:text-lg leading-tight">
+                                    {formatPrice(flashInfo.salePrice)}
+                                </p>
+                            </div>
                         ) : (
                             <>
-                                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                                     Giá bán
                                 </p>
-                                <p className="text-base font-extrabold text-slate-900 sm:text-lg text-indigo-600">
+                                <p className="text-base font-extrabold tabular-nums text-slate-900 sm:text-lg">
                                     {formatPrice(product.price)}
                                 </p>
                             </>
                         )}
                     </div>
 
-                    <Link
-                        to={`/products/${product.id}`}
-                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition focus:outline-none ${
+                    <button
+                        type="button"
+                        onClick={handleQuickAdd}
+                        disabled={!product.inStock}
+                        title={product.inStock ? "Thêm nhanh vào giỏ hàng" : "Sản phẩm tạm hết hàng"}
+                        aria-label={`Thêm ${product.name} vào giỏ hàng`}
+                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer ${
                             flashInfo.isFlashSale
                                 ? "bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white"
-                                : "bg-slate-100 text-slate-700 hover:bg-indigo-600 hover:text-white"
+                                : "bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white"
                         }`}
-                        aria-label={`Xem chi tiết ${product.name}`}
                     >
                         <ShoppingBag size={16} />
-                    </Link>
+                    </button>
                 </div>
             </div>
-        </div>
+        </article>
     );
 }
 

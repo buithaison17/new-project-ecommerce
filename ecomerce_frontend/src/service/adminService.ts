@@ -1,6 +1,7 @@
 import { api } from "../lib/axios";
 import type { AdminOrder, AdminUserResponse, ApiDataResponse, DashboardSummaryResponse, InventoryItem, PageResponse } from "../types/admin";
 import type { Category, ProductSummary } from "../types/catalog";
+import type { FlashSaleRequest, FlashSaleResponse } from "../types/flashSale";
 import type { OrderItemResponse, OrderStatus } from "../types/order";
 import { getProductThumbnail, orderService } from "./orderService";
 import { getOrderStatusOverrides, normalizeOrderStatus, saveOrderStatusOverride, syncOrderStatus, VALID_ORDER_STATUSES } from "./orderStatusSync";
@@ -283,6 +284,32 @@ export const adminService = {
     async unblockUser(userId: number) {
         const response = await api.patch<ApiDataResponse<void>>(`/admin/users/${userId}/unblock`);
         return response.data.data;
+    },
+
+    async getFlashSales(scope?: string, active?: boolean, page = 0, size = 10): Promise<PageResponse<FlashSaleResponse>> {
+        const response = await api.get<ApiDataResponse<PageResponse<FlashSaleResponse>>>("/admin/flash-sales", {
+            params: { scope, active, page, size },
+        });
+        return response.data.data;
+    },
+
+    async getFlashSale(id: number): Promise<FlashSaleResponse> {
+        const response = await api.get<ApiDataResponse<FlashSaleResponse>>(`/admin/flash-sales/${id}`);
+        return response.data.data;
+    },
+
+    async createFlashSale(data: FlashSaleRequest): Promise<FlashSaleResponse> {
+        const response = await api.post<ApiDataResponse<FlashSaleResponse>>("/admin/flash-sales", data);
+        return response.data.data;
+    },
+
+    async updateFlashSale(id: number, data: FlashSaleRequest): Promise<FlashSaleResponse> {
+        const response = await api.put<ApiDataResponse<FlashSaleResponse>>(`/admin/flash-sales/${id}`, data);
+        return response.data.data;
+    },
+
+    async deleteFlashSale(id: number) {
+        await api.delete(`/admin/flash-sales/${id}`);
     },
 
 };

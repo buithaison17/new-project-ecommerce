@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useSearchParams } from "react-router-dom";
 import OrderDetailModal from "../../components/OrderDetailModal.tsx";
 import { adminService } from "../../service/adminService";
 import { normalizeOrderStatus } from "../../service/orderStatusSync";
@@ -96,6 +97,7 @@ const currency = new Intl.NumberFormat("vi-VN", {
 });
 
 export default function AdminOrdersPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [page, setPage] = useState<PageResponse<AdminOrderExtended>>({
         content: [],
         totalElements: 0,
@@ -104,18 +106,33 @@ export default function AdminOrdersPage() {
         size: 20,
     });
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState("");
-    const [search, setSearch] = useState("");
+    const [filter, setFilter] = useState(() => searchParams.get("status") || "");
+    const [search, setSearch] = useState(() => searchParams.get("search") || "");
     const [currentPage, setCurrentPage] = useState(1);
     const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
     const [viewingOrder, setViewingOrder] = useState<AdminOrderExtended | null>(null);
 
+    useEffect(() => {
+        const paramStatus = searchParams.get("status");
+        const paramSearch = searchParams.get("search");
+        if (paramStatus !== null) {
+            setFilter(paramStatus);
+            setCurrentPage(1);
+        }
+        if (paramSearch !== null) {
+            setSearch(paramSearch);
+        }
+    }, [searchParams]);
+
     const loadOrders = useCallback(
-        async (targetPage: number, targetFilter: string) => {
+        async (targetPage: number, targetFilter: string, showToast = false) => {
             setLoading(true);
             try {
                 const data = await adminService.getOrders(targetPage, targetFilter);
                 setPage(data as unknown as PageResponse<AdminOrderExtended>);
+                if (showToast) {
+                    toast.success("Làm mới danh sách đơn hàng thành công!", { id: "orders-reload" });
+                }
             } catch {
                 toast.error("Không tải được đơn hàng. Hãy kiểm tra quyền Admin.");
             } finally {
@@ -138,18 +155,28 @@ export default function AdminOrdersPage() {
             }, 300);
         };
 
+        const handleAdminRefresh = () => {
+            void loadOrders(currentPage, filter);
+        };
+
         window.addEventListener("order_status_changed", handleSync);
         window.addEventListener("storage", handleSync);
+        window.addEventListener("admin_refresh_data", handleAdminRefresh);
         return () => {
             clearTimeout(timer);
             window.removeEventListener("order_status_changed", handleSync);
             window.removeEventListener("storage", handleSync);
+            window.removeEventListener("admin_refresh_data", handleAdminRefresh);
         };
     }, [currentPage, filter, loadOrders]);
 
     const handleFilterChange = (val: string) => {
         setFilter(val);
         setCurrentPage(1);
+        const next = new URLSearchParams(searchParams);
+        if (val) next.set("status", val);
+        else next.delete("status");
+        setSearchParams(next, { replace: true });
     };
 
     const updateStatus = async (orderId: number, nextStatus: AdminOrder["orderStatus"]) => {
@@ -323,11 +350,12 @@ export default function AdminOrdersPage() {
                 </div>
                 <button
                     type="button"
-                    onClick={() => loadOrders(currentPage, filter)}
+                    onClick={() => loadOrders(currentPage, filter, true)}
                     disabled={loading}
                     className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                 >
-                    <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Làm mới danh sách
+                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                    <span>{loading ? "Đang tải lại..." : "Làm mới danh sách"}</span>
                 </button>
             </section>
 
@@ -580,10 +608,10 @@ export default function AdminOrdersPage() {
 
                                         {/* Tổng tiền */}
                                         <td className="px-6 py-4 align-top">
-                                            <p className="font-extrabold text-slate-900 text-sm">
+                                            <p className="font-extrabold tabular-nums text-slate-900 text-sm">
                                                 {currency.format(order.finalAmount || order.totalAmount || 0)}
                                             </p>
-                                            <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
+                                            <div className="mt-1 space-y-0.5 text-[10px] tabular-nums text-slate-500">
                                                 {typeof order.totalAmount === "number" &&
                                                     order.finalAmount !== order.totalAmount && (
                                                         <p>Tiền hàng: {currency.format(order.totalAmount)}</p>
@@ -628,9 +656,24 @@ export default function AdminOrdersPage() {
                                                     }
                                                     className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none transition focus:border-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                                                 >
-                                                    <option value="PENDING">Chờ xác nhận</option>
-                                                    <option value="SHIPPED">Đang giao</option>
-                                                    <option value="DELIVERED">Đã giao</option>
+                                                    <option
+                                                        value="PENDING"
+                                                        disabled={order.orderStatus === "SHIPPED"}
+                                                    >
+                                                        Chờ xác nhận
+                                                    </option>
+                                                    <option
+                                                        value="SHIPPED"
+                                                        disabled={order.orderStatus === "DELIVERED" || isCancelled}
+                                                    >
+                                                        Đang giao
+                                                    </option>
+                                                    <option
+                                                        value="DELIVERED"
+                                                        disabled={order.orderStatus === "PENDING" || isCancelled}
+                                                    >
+                                                        Đã giao
+                                                    </option>
                                                     <option
                                                         value="CANCELLED"
                                                         disabled={order.orderStatus !== "PENDING" && !isCancelled}
@@ -645,10 +688,15 @@ export default function AdminOrdersPage() {
                                                     />
                                                 )}
                                             </div>
-                                            {order.orderStatus !== "PENDING" && !isCancelled && !isDelivered && (
+                                            {order.orderStatus === "PENDING" && (
                                                 <span className="block mt-1 text-[10px] text-slate-400">
-                                                        *Chỉ đơn Chờ xác nhận mới có thể hủy
-                                                    </span>
+                                                    *Cần chuyển sang Đang giao trước khi Đã giao
+                                                </span>
+                                            )}
+                                            {order.orderStatus === "SHIPPED" && (
+                                                <span className="block mt-1 text-[10px] text-slate-400">
+                                                    *Đơn đang giao, chỉ có thể cập nhật sang Đã giao
+                                                </span>
                                             )}
                                         </td>
 

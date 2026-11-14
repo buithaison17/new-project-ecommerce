@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
     CheckCircle2,
     Clock,
@@ -18,9 +18,20 @@ type PaymentState = "PENDING" | "PAID" | "CANCELLED" | "EXPIRED" | "ERROR";
 const POLL_INTERVAL_MS = 5000;
 
 export default function PaymentPage() {
-    const { orderId } = useParams<{ orderId: string }>();
     const navigate = useNavigate();
     const location = useLocation();
+    const orderId = location.state?.orderId;
+
+    useEffect(() => {
+        if (!orderId) {
+            navigate("/cart");
+        }
+    }, [orderId, navigate]);
+
+    if (!orderId) {
+        navigate("/cart");
+        return null;
+    }
 
     const [paymentState, setPaymentState] = useState<PaymentState>("PENDING");
     const [qrCode, setQrCode] = useState<string>("");
@@ -31,20 +42,35 @@ export default function PaymentPage() {
 
     const orderIdNum = Number(orderId);
 
-    // Lấy thông tin thanh toán từ location.state hoặc window.history.state
+    // Lấy thông tin thanh toán từ location.state
     useEffect(() => {
-        const stateData: any = location.state || window.history.state?.usr;
-        if (stateData?.checkout) {
-            const checkout = stateData.checkout;
+        const stateData: any = location.state;
+        let checkout = stateData?.checkout;
+        if (!checkout && orderId) {
+            try {
+                const saved = localStorage.getItem(`payos_checkout_${orderId}`);
+                if (saved) {
+                    checkout = JSON.parse(saved);
+                }
+            } catch {
+                // ignore
+            }
+        }
+
+        if (checkout) {
             setQrCode(checkout.qrCode || "");
             setCheckoutUrl(checkout.checkoutUrl || "");
-            setAmount(checkout.amount || stateData.order?.finalAmount || 0);
+            setAmount(checkout.amount || stateData?.order?.finalAmount || 0);
             setDescription(
                 checkout.description || `Thanh toán đơn hàng #${orderId}`,
             );
         } else if (stateData?.order) {
-            setAmount(stateData.order.finalAmount || 0);
+            const finalAmt = stateData.order.finalAmount || 0;
+            setAmount(finalAmt);
             setDescription(`Thanh toán đơn hàng #${orderId}`);
+            if (finalAmt > 0) {
+                setQrCode(`THANHTOAN_DONHANG_${orderId}_${finalAmt}`);
+            }
         }
     }, [location.state, orderId]);
 
@@ -156,12 +182,12 @@ export default function PaymentPage() {
                         <div className="space-y-6">
                             {/* QR Code */}
                             {qrCode && (
-                                <div className="text-center">
-                                    <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-xs font-bold text-indigo-700">
+                                <div className="flex flex-col items-center justify-center space-y-4">
+                                    <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-xs font-bold text-indigo-700">
                                         <QrCode size={14} />
                                         Quét mã QR để thanh toán
                                     </div>
-                                    <div className="mt-4 inline-block rounded-2xl border-2 border-indigo-100 bg-white p-4 shadow-lg">
+                                    <div className="flex items-center justify-center rounded-2xl border-2 border-indigo-100 bg-white p-6 shadow-lg">
                                         <img
                                             src={
                                                 qrCode.startsWith("http") ||
@@ -170,7 +196,7 @@ export default function PaymentPage() {
                                                     : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrCode)}`
                                             }
                                             alt="PayOS QR Code"
-                                            className="h-56 w-56 object-contain sm:h-64 sm:w-64"
+                                            className="h-64 w-64 object-contain"
                                         />
                                     </div>
                                 </div>
