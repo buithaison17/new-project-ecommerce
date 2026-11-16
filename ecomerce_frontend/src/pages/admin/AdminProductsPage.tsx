@@ -31,6 +31,7 @@ interface SelectedLocalFile {
 }
 
 import { formatProductImageUrl } from "../../lib/image";
+import { ProductRichTextEditor } from "../../components/admin/ProductRichTextEditor";
 
 const formatImageUrl = (url?: string | null) => {
     if (!url) return null;
@@ -643,10 +644,9 @@ export default function AdminProductsPage() {
                             </div>
 
                             <Field label="Mô tả sản phẩm *">
-                                <textarea
-                                    rows={3}
+                                <ProductRichTextEditor
                                     value={form.description}
-                                    onChange={(e) => change("description", e.target.value)}
+                                    onChange={(val) => change("description", val)}
                                     placeholder="Nhập mô tả chi tiết tính năng, thông số kỹ thuật của sản phẩm..."
                                 />
                             </Field>
