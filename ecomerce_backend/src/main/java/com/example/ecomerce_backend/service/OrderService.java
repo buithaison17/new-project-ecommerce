@@ -327,7 +327,10 @@ public class OrderService {
             Transaction transaction = transactionRepository.findByOrderIdAndUser(id, user)
                     .orElseThrow(() -> new ResourceNotFoundException("Giao dịch không tồn tại"));
             transaction.setStatus(PaymentLinkStatus.CANCELLED);
-            checkoutService.refund(transaction, request);
+            transaction.getOrder().setPaymentStatus(PaymentStatus.CANCELLED);
+            if (transaction.getStatus() == PaymentLinkStatus.PAID) {
+                checkoutService.refund(transaction, request);
+            }
         }
         orderRepository.save(order);
         return orderMapper.toOrderResponse(order);

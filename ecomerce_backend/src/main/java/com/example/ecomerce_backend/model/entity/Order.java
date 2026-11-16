@@ -52,7 +52,6 @@ public class Order {
     private LocalDateTime createdAt;
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-    private LocalDateTime expiredAt;
     @Builder.Default
     private Boolean isDeleted = false;
 }
