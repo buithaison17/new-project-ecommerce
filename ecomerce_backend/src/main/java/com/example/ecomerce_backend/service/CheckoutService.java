@@ -46,7 +46,7 @@ public class CheckoutService {
             new AtomicLong(System.currentTimeMillis() / 1000);
     @Value("${frontend.url}")
     private String frontendUrl;
-    private final Integer expiredAt = 1;
+    private final Integer expiredAt = 10;
 
     public CheckoutService(
             @Lazy OrderService orderService,
