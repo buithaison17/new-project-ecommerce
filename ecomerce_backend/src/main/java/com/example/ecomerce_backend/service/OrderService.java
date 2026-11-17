@@ -172,6 +172,7 @@ public class OrderService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         // Lấy địa chỉ nhận hàng
         UserDelivery userDelivery = userDeliveryRepository.findByIdAndUser(request.deliveryId(), user)
+                .filter(delivery -> !Boolean.TRUE.equals(delivery.getIsDeleted()))
                 .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ nhận hàng không tồn tại"));
         PaymentMethod paymentMethod = PaymentMethod.valueOf(request.paymentMethod().toUpperCase());
         // Tạo order
@@ -327,7 +328,10 @@ public class OrderService {
             Transaction transaction = transactionRepository.findByOrderIdAndUser(id, user)
                     .orElseThrow(() -> new ResourceNotFoundException("Giao dịch không tồn tại"));
             transaction.setStatus(PaymentLinkStatus.CANCELLED);
-            checkoutService.refund(transaction, request);
+            transaction.getOrder().setPaymentStatus(PaymentStatus.CANCELLED);
+            if (transaction.getStatus() == PaymentLinkStatus.PAID) {
+                checkoutService.refund(transaction, request);
+            }
         }
         orderRepository.save(order);
         return orderMapper.toOrderResponse(order);

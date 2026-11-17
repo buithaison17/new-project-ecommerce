@@ -30,9 +30,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +44,6 @@ public class AiOrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserDeliveryRepository userDeliveryRepository;
-    private final ObjectMapper objectMapper;
 
     public List<AiOrderSummaryResponse> getMyOrders(User user, String status, int page, int size) {
         OrderStatus orderStatus = parseOrderStatus(status);
@@ -83,14 +83,17 @@ public class AiOrderService {
     }
 
     @Transactional
-    public AiPlaceOrderResponse placeOrder(User user, String itemsJson, Long deliveryId, String paymentMethod, String note) {
+    public AiPlaceOrderResponse placeOrder(User user, List<CreateOrderItemRequest> items, Long deliveryId, String paymentMethod, String note) {
         requireCustomer(user);
-        List<CreateOrderItemRequest> items = parseItems(itemsJson);
+        List<CreateOrderItemRequest> normalizedItems = normalizeItems(items);
+        if (deliveryId == null) {
+            throw new BadRequestException("Vui lòng chọn địa chỉ giao hàng");
+        }
         String normalizedPaymentMethod = paymentMethod == null ? "" : paymentMethod.toUpperCase();
         if (!"CASH".equals(normalizedPaymentMethod) && !"CREDIT_CARD".equals(normalizedPaymentMethod)) {
             throw new BadRequestException("Phương thức thanh toán phải là CASH hoặc CREDIT_CARD");
         }
-        CreateOrderRequest request = new CreateOrderRequest(items, deliveryId, normalizedPaymentMethod, note);
+        CreateOrderRequest request = new CreateOrderRequest(normalizedItems, deliveryId, normalizedPaymentMethod, note);
         if ("CREDIT_CARD".equals(normalizedPaymentMethod)) {
             CreateCheckoutResponse checkout = checkoutService.handleCheckoutOrder(user, request);
             Order order = orderRepository.findById(checkout.orderId())
@@ -161,10 +164,16 @@ public class AiOrderService {
     @Transactional
     public AiDeliveryAddressResponse createDeliveryAddress(User user, String address, String phoneNumber) {
         requireCustomer(user);
+        if (address == null || address.trim().isBlank()) {
+            throw new BadRequestException("Địa chỉ giao hàng không được để trống");
+        }
+        if (phoneNumber == null || phoneNumber.trim().isBlank()) {
+            throw new BadRequestException("Số điện thoại nhận hàng không được để trống");
+        }
         UserDelivery delivery = userDeliveryRepository.save(UserDelivery.builder()
                 .user(user)
-                .address(address)
-                .phoneNumber(phoneNumber)
+                .address(address.trim())
+                .phoneNumber(phoneNumber.trim())
                 .build());
         return new AiDeliveryAddressResponse(delivery.getId(), delivery.getAddress(), delivery.getPhoneNumber());
     }
@@ -192,22 +201,35 @@ public class AiOrderService {
         if (status == null || status.isBlank()) {
             return null;
         }
+        String clean = status.trim().toUpperCase().replace(" ", "_").replace("-", "_");
+        if ("ALL".equals(clean) || "TAT_CA".equals(clean) || "TATCA".equals(clean)) {
+            return null;
+        }
         try {
-            return OrderStatus.valueOf(status.toUpperCase());
+            return OrderStatus.valueOf(clean);
         } catch (IllegalArgumentException e) {
-            throw new BadRequestException("Trạng thái đơn hàng không hợp lệ: " + status);
+            return null;
         }
     }
 
-    private List<CreateOrderItemRequest> parseItems(String itemsJson) {
-        try {
-            return objectMapper.readValue(
-                    itemsJson,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, CreateOrderItemRequest.class)
-            );
-        } catch (Exception e) {
-            throw new BadRequestException("Danh sách sản phẩm không hợp lệ, cần dạng JSON array với productId và quantity");
+    private List<CreateOrderItemRequest> normalizeItems(List<CreateOrderItemRequest> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BadRequestException("Đơn hàng phải có ít nhất một sản phẩm");
         }
+        Map<Long, Long> quantities = new LinkedHashMap<>();
+        for (CreateOrderItemRequest item : items) {
+            if (item == null || item.productId() == null || item.quantity() == null || item.quantity() <= 0) {
+                throw new BadRequestException("Mỗi sản phẩm trong đơn hàng phải có productId và quantity lớn hơn 0");
+            }
+            long newQuantity = quantities.getOrDefault(item.productId(), 0L) + item.quantity();
+            if (newQuantity > Integer.MAX_VALUE) {
+                throw new BadRequestException("Tổng số lượng của một sản phẩm vượt quá giới hạn cho phép");
+            }
+            quantities.put(item.productId(), newQuantity);
+        }
+        return quantities.entrySet().stream()
+                .map(entry -> new CreateOrderItemRequest(entry.getKey(), entry.getValue().intValue()))
+                .toList();
     }
 
     private void requireCustomer(User user) {

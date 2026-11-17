@@ -11,6 +11,7 @@ public record ProductSummaryResponse(
         String categoryName,
         String thumbnailUrl,
         Integer stockQuantity,
-        Boolean inStock
+        Boolean inStock,
+        BigDecimal flashSalePrice
 ) {
 }

@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** API công khai cho khách hàng (không cần đăng nhập): danh mục, tìm kiếm/lọc, chi tiết sản phẩm. */
+/**
+ * API công khai cho khách hàng (không cần đăng nhập): danh mục, tìm kiếm/lọc, chi tiết sản phẩm.
+ */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
