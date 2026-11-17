@@ -20,7 +20,7 @@ public class CatalogMapper {
         return new CategoryResponse(category.getId(), category.getName(), category.getDescription());
     }
 
-    public ProductSummaryResponse toProductSummary(Product product, int stockQuantity) {
+    public ProductSummaryResponse toProductSummary(Product product, int stockQuantity, java.math.BigDecimal flashSalePrice) {
         List<ProductImageResponse> images = activeImages(product);
         Category category = product.getCategory();
         return new ProductSummaryResponse(
@@ -31,11 +31,16 @@ public class CatalogMapper {
                 category.getName(),
                 images.isEmpty() ? null : images.get(0).url(),
                 stockQuantity,
-                stockQuantity > 0
+                stockQuantity > 0,
+                flashSalePrice
         );
     }
 
     public ProductResponse toProductDetail(Product product, int stockQuantity) {
+        return toProductDetail(product, stockQuantity, null);
+    }
+
+    public ProductResponse toProductDetail(Product product, int stockQuantity, java.math.BigDecimal flashSalePrice) {
         List<ProductImageResponse> images = activeImages(product);
         return new ProductResponse(
                 product.getId(),
@@ -48,7 +53,8 @@ public class CatalogMapper {
                 stockQuantity,
                 stockQuantity > 0,
                 product.getCreatedAt(),
-                product.getUpdatedAt()
+                product.getUpdatedAt(),
+                flashSalePrice
         );
     }
 
