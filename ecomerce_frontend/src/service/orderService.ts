@@ -88,6 +88,7 @@ export interface PlaceOrderParams {
     paymentMethod: PaymentMethod;
     note?: string;
     deliveryId?: number;
+    isBuyNow?: boolean;
 }
 
 export const orderService = {
@@ -814,12 +815,14 @@ export const orderService = {
                     })),
                 );
 
-                // Làm sạch giỏ hàng ở cả LocalStorage và Backend
-                useCartStore.getState().clearCart();
-                try {
-                    await cartService.clear();
-                } catch {
-                    // ignore if backend cart already empty or error
+                // Làm sạch giỏ hàng ở cả LocalStorage và Backend (chỉ khi đặt từ giỏ hàng, không áp dụng cho Mua Ngay)
+                if (!params.isBuyNow) {
+                    useCartStore.getState().clearCart();
+                    try {
+                        await cartService.clear();
+                    } catch {
+                        // ignore if backend cart already empty or error
+                    }
                 }
 
                 return order;
@@ -942,12 +945,14 @@ export const orderService = {
                     })),
                 );
 
-                // Làm sạch giỏ hàng
-                useCartStore.getState().clearCart();
-                try {
-                    await cartService.clear();
-                } catch {
-                    // ignore
+                // Làm sạch giỏ hàng (chỉ khi đặt từ giỏ hàng, không áp dụng cho Mua Ngay)
+                if (!params.isBuyNow) {
+                    useCartStore.getState().clearCart();
+                    try {
+                        await cartService.clear();
+                    } catch {
+                        // ignore
+                    }
                 }
 
                 const subtotal = items.reduce(

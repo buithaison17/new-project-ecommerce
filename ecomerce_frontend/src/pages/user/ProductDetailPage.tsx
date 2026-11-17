@@ -223,14 +223,28 @@ export default function ProductDetailPage() {
     const handleBuyNow = () => {
         if (!product || !product.inStock) return;
         const unitPrice = flashInfo.isFlashSale ? flashInfo.salePrice : product.price;
-        addItem(
-            {
-                ...product,
-                price: unitPrice,
+        const buyNowItem = {
+            productId: product.id,
+            name: product.name,
+            price: unitPrice,
+            thumbnailUrl: formatProductImageUrl(product.thumbnailUrl || product.images?.[0]?.url),
+            stockQuantity: product.stockQuantity,
+            quantity: Math.max(1, quantity),
+        };
+
+        // Lưu vào sessionStorage để đảm bảo an toàn kể cả khi người dùng phải chuyển hướng qua đăng nhập
+        try {
+            sessionStorage.setItem("shopnova_buynow_item", JSON.stringify(buyNowItem));
+        } catch {
+            // ignore
+        }
+
+        navigate("/checkout", {
+            state: {
+                buyNowItem,
+                isBuyNow: true,
             },
-            quantity,
-        );
-        navigate("/checkout");
+        });
     };
 
     return (
