@@ -37,4 +37,5 @@ public class Transaction {
     private String bankBin;
     @CreationTimestamp
     private LocalDateTime createdAt;
+    private LocalDateTime expiredAt;
 }

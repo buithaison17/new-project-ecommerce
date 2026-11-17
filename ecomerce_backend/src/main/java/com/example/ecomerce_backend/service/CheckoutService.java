@@ -46,6 +46,7 @@ public class CheckoutService {
             new AtomicLong(System.currentTimeMillis() / 1000);
     @Value("${frontend.url}")
     private String frontendUrl;
+    private final Integer expiredAt = 1;
 
     public CheckoutService(
             @Lazy OrderService orderService,
@@ -75,13 +76,11 @@ public class CheckoutService {
             throw new BadRequestException("Chỉ áp dụng khi thanh toán bằng hình thức chuyển khoản");
         }
         OrderResponse orderResponse = null;
-        LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(10);
         try {
             // Tạo đơn hàng
             orderResponse = orderService.createOrder(user, request);
             // Cập nhật expiredAt cho đơn hàng
             Order order = orderRepository.findById(orderResponse.id()).get();
-            order.setExpiredAt(expiredAt);
             orderRepository.save(order);
             // Tạo mã thanh toán
             Long orderCode = generateOrderCode();
@@ -91,7 +90,7 @@ public class CheckoutService {
                     .description("Thanh toán đơn hàng " + orderResponse.id())
                     .returnUrl(frontendUrl + "/checkout/success")
                     .cancelUrl("")
-                    .expiredAt(Instant.now().plus(Duration.ofMinutes(10)).getEpochSecond()) // Hết hạn trong 10 phút
+                    .expiredAt(Instant.now().plus(Duration.ofMinutes(expiredAt)).getEpochSecond()) // Thời gian mã có hiệu lực
                     .build();
             CreatePaymentLinkResponse createPaymentLinkResponse = payOS.paymentRequests().create(createPaymentLinkRequest);
             // Tạo giao dịch
@@ -101,6 +100,7 @@ public class CheckoutService {
                     .order(orderRepository.findById(orderResponse.id()).orElseThrow(() -> new ResourceNotFoundException("Order không tồn tại")))
                     .paymentLinkId(createPaymentLinkResponse.getPaymentLinkId())
                     .status(createPaymentLinkResponse.getStatus())
+                    .expiredAt(LocalDateTime.now().plusMinutes(Long.valueOf(expiredAt)))
                     .build();
             transactionRepository.save(transaction);
             return new CreateCheckoutResponse(

@@ -1,7 +1,10 @@
 import {
     ArrowLeft,
+    BookOpen,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
+    ChevronUp,
     Flame,
     Maximize2,
     Minus,
@@ -39,9 +42,21 @@ export default function ProductDetailPage() {
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [quantity, setQuantity] = useState(1);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [isArticleExpanded, setIsArticleExpanded] = useState(false);
 
     const addItem = useCartStore((state) => state.addItem);
     const getPriceInfo = useFlashSaleStore((state) => state.getPriceInfo);
+
+    const isLongArticle = useMemo(() => {
+        if (!product?.description) return false;
+        return product.description.length > 400;
+    }, [product?.description]);
+
+    const readTime = useMemo(() => {
+        if (!product?.description) return 1;
+        const words = product.description.replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+        return Math.max(1, Math.ceil(words / 180));
+    }, [product?.description]);
 
     const flashInfo = useMemo(() => {
         if (!product) {
@@ -208,14 +223,28 @@ export default function ProductDetailPage() {
     const handleBuyNow = () => {
         if (!product || !product.inStock) return;
         const unitPrice = flashInfo.isFlashSale ? flashInfo.salePrice : product.price;
-        addItem(
-            {
-                ...product,
-                price: unitPrice,
+        const buyNowItem = {
+            productId: product.id,
+            name: product.name,
+            price: unitPrice,
+            thumbnailUrl: formatProductImageUrl(product.thumbnailUrl || product.images?.[0]?.url),
+            stockQuantity: product.stockQuantity,
+            quantity: Math.max(1, quantity),
+        };
+
+        // Lưu vào sessionStorage để đảm bảo an toàn kể cả khi người dùng phải chuyển hướng qua đăng nhập
+        try {
+            sessionStorage.setItem("shopnova_buynow_item", JSON.stringify(buyNowItem));
+        } catch {
+            // ignore
+        }
+
+        navigate("/checkout", {
+            state: {
+                buyNowItem,
+                isBuyNow: true,
             },
-            quantity,
-        );
-        navigate("/checkout");
+        });
     };
 
     return (
@@ -526,14 +555,41 @@ export default function ProductDetailPage() {
                         </div>
                     </div>
 
-                    {/* Description */}
+                    {/* Description Summary */}
                     <div className="mt-8 border-t border-slate-100 pt-6">
-                        <h2 className="text-base font-bold text-slate-900">
-                            Mô tả chi tiết sản phẩm
-                        </h2>
-                        <div className="mt-3 text-sm leading-relaxed text-slate-600 whitespace-pre-line">
-                            {product.description ||
-                                "Thông tin mô tả đang được hệ thống cập nhật."}
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-base font-bold text-slate-900">
+                                {isLongArticle ? "Tổng quan sản phẩm" : "Mô tả chi tiết sản phẩm"}
+                            </h2>
+                            {isLongArticle && (
+                                <a
+                                    href="#product-article"
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100"
+                                >
+                                    <BookOpen size={13} />
+                                    Đọc bài đánh giá chi tiết ↓
+                                </a>
+                            )}
+                        </div>
+                        <div className="mt-3 text-sm leading-relaxed text-slate-600">
+                            {product.description ? (
+                                /<[a-z][\s\S]*>/i.test(product.description) ? (
+                                    <div
+                                        className={`prose-content leading-relaxed [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_li]:mb-0.5 [&_h2]:text-sm [&_h2]:font-bold [&_h2]:text-slate-900 [&_h2]:mt-2 [&_h3]:text-xs [&_h3]:font-bold [&_h3]:text-slate-800 ${
+                                            isLongArticle ? "line-clamp-4 text-xs" : ""
+                                        }`}
+                                        dangerouslySetInnerHTML={{ __html: product.description }}
+                                    />
+                                ) : (
+                                    <div className={`whitespace-pre-line leading-relaxed ${isLongArticle ? "line-clamp-4 text-xs" : ""}`}>
+                                        {product.description}
+                                    </div>
+                                )
+                            ) : (
+                                <p className="text-slate-400 italic">
+                                    Thông tin mô tả đang được hệ thống cập nhật.
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -557,6 +613,86 @@ export default function ProductDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* In-depth Editorial Article Section */}
+            {product.description && (
+                <section
+                    id="product-article"
+                    className="mt-12 scroll-mt-24 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-10"
+                >
+                    {/* Editorial Article Header */}
+                    <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50/80 px-3 py-1 text-xs font-bold text-indigo-700">
+                                <BookOpen size={14} /> Bài viết đánh giá chuyên sâu & Trải nghiệm thực tế
+                            </div>
+                            <h2 className="mt-3 text-xl font-black text-slate-900 sm:text-2xl">
+                                Đánh Giá Chi Tiết: {product.name}
+                            </h2>
+                            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                                Tổng hợp thông số, trải nghiệm sử dụng thực tế và phân tích chi tiết từ ban biên tập ShopNova
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 self-start sm:self-auto">
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-2 text-right">
+                                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Thời gian đọc
+                                </span>
+                                <span className="text-sm font-black tabular-nums text-slate-800">
+                                    ~{readTime} phút
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Article Content Container */}
+                    <div className="relative mt-8">
+                        <div
+                            className={`prose-article leading-relaxed text-slate-700 transition-all duration-300 ${
+                                !isArticleExpanded && isLongArticle ? "max-h-[520px] overflow-hidden" : "max-h-none"
+                            }`}
+                        >
+                            {/<[a-z][\s\S]*>/i.test(product.description) ? (
+                                <div
+                                    className="rich-article-content space-y-4 text-base leading-relaxed [&_h2]:mt-7 [&_h2]:mb-3 [&_h2]:border-l-4 [&_h2]:border-indigo-600 [&_h2]:pl-3.5 [&_h2]:text-xl [&_h2]:font-black [&_h2]:text-slate-900 [&_h3]:mt-5 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-800 [&_h4]:mt-4 [&_h4]:mb-1.5 [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-slate-800 [&_p]:mb-4 [&_p]:text-slate-600 [&_p]:leading-relaxed [&_ul]:mb-5 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6 [&_ol]:mb-5 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_li]:text-slate-600 [&_blockquote]:my-6 [&_blockquote]:rounded-r-2xl [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400 [&_blockquote]:bg-indigo-50/60 [&_blockquote]:p-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_figure.table]:my-6 [&_figure.table]:overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-xl [&_table]:border [&_table]:border-slate-200 [&_thead]:bg-slate-100 [&_th]:border [&_th]:border-slate-200 [&_th]:p-3 [&_th]:text-left [&_th]:text-xs [&_th]:font-bold [&_th]:uppercase [&_th]:text-slate-700 [&_td]:border [&_td]:border-slate-200 [&_td]:p-3 [&_td]:text-sm [&_td]:text-slate-600 [&_tr:nth-child(even)]:bg-slate-50/40 [&_strong]:font-bold [&_strong]:text-slate-900 [&_a]:text-indigo-600 [&_a]:underline"
+                                    dangerouslySetInnerHTML={{ __html: product.description }}
+                                />
+                            ) : (
+                                <div className="whitespace-pre-line text-base leading-relaxed text-slate-600">
+                                    {product.description}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Expand / Collapse Button if Long Article */}
+                        {isLongArticle && (
+                            <div
+                                className={`${
+                                    !isArticleExpanded
+                                        ? "absolute bottom-0 left-0 right-0 flex justify-center bg-gradient-to-t from-white via-white/95 to-transparent pt-32 pb-2"
+                                        : "mt-8 flex justify-center border-t border-slate-100 pt-6"
+                                }`}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => setIsArticleExpanded(!isArticleExpanded)}
+                                    className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-6 py-2.5 text-xs font-bold text-indigo-700 shadow-md transition hover:bg-indigo-50 active:scale-95 cursor-pointer sm:text-sm"
+                                >
+                                    {isArticleExpanded ? (
+                                        <>
+                                            <ChevronUp size={16} /> Thu gọn bài viết đánh giá
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ChevronDown size={16} /> Đọc toàn bộ bài viết đánh giá chi tiết
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
 
             {/* Lightbox Modal */}
             {isLightboxOpen && (

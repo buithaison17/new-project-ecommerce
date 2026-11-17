@@ -19,7 +19,7 @@ import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
-   Optional<Order> findByIdAndUser(Long id, User user);
+    Optional<Order> findByIdAndUser(Long id, User user);
 
     Page<Order> findByIsDeleted(Boolean isDeleted, Pageable pageable);
 
@@ -28,18 +28,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByIsDeletedAndUser(Boolean isDeleted, User user, Pageable pageable);
 
     Page<Order> findByIsDeletedAndUserAndOrderStatus(Boolean isDeleted, User user, OrderStatus orderStatus, Pageable pageable);
+
     @EntityGraph(attributePaths = {"user", "delivery"})
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);
 
-    /** SELECT ... FOR UPDATE: dùng khi đổi trạng thái đơn để hai request đồng thời không xử lý cùng một đơn. */
+    /**
+     * SELECT ... FOR UPDATE: dùng khi đổi trạng thái đơn để hai request đồng thời không xử lý cùng một đơn.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Order> findWithLockById(Long id);
-
-    @Query("SELECT o FROM Order o WHERE o.paymentMethod = 'CREDIT_CARD' " +
-           "AND o.orderStatus = 'PENDING' " +
-           "AND o.paymentStatus = 'PENDING' " +
-           "AND o.expiredAt IS NOT NULL " +
-           "AND o.expiredAt < :now " +
-           "AND o.isDeleted = false")
-    List<Order> findExpiredOnlinePaymentOrders(java.time.LocalDateTime now);
 }

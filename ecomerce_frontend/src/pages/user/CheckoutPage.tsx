@@ -13,15 +13,17 @@ import {
     Truck,
     WalletCards,
     X,
+    Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { message } from "antd";
 import { useAuthStore } from "../../store/authStore";
 import { useCartStore } from "../../store/cartStore";
 import { formatProductImageUrl } from "../../lib/image";
 import { orderService } from "../../service/orderService";
 import type { PaymentMethod, UserDeliveryResponse } from "../../types/order";
+import type { CartItem } from "../../types/cart";
 
 const SHIPPING_FEE = 20000;
 
@@ -34,8 +36,36 @@ const formatPrice = (price: number) =>
 
 export default function CheckoutPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const user = useAuthStore((state) => state.user);
-    const items = useCartStore((state) => state.items);
+
+    // Xác định xem đang mua ngay 1 sản phẩm hay thanh toán toàn bộ giỏ hàng
+    const [buyNowItem] = useState<CartItem | null>(() => {
+        if (location.state?.isBuyNow && location.state?.buyNowItem) {
+            return location.state.buyNowItem;
+        }
+        if (location.state?.fromCart) {
+            try {
+                sessionStorage.removeItem("shopnova_buynow_item");
+            } catch {
+                // ignore
+            }
+            return null;
+        }
+        try {
+            const saved = sessionStorage.getItem("shopnova_buynow_item");
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch {
+            // ignore
+        }
+        return null;
+    });
+
+    const isBuyNow = Boolean(buyNowItem);
+    const cartItems = useCartStore((state) => state.items);
+    const items = isBuyNow && buyNowItem ? [buyNowItem] : cartItems;
 
     const [savedDeliveries, setSavedDeliveries] = useState<UserDeliveryResponse[]>([]);
     // Bảng thông tin chỉ hiện khi người dùng chọn một địa chỉ hoặc bấm thêm địa chỉ mới
@@ -301,7 +331,14 @@ export default function CheckoutPage() {
                     phoneNumber: cleanPhone,
                     paymentMethod: "PAYOS",
                     note: note.trim() || undefined,
+                    isBuyNow,
                 });
+
+                try {
+                    sessionStorage.removeItem("shopnova_buynow_item");
+                } catch {
+                    // ignore
+                }
 
                 message.success("Đơn hàng đã tạo! Chuyển tới trang thanh toán PayOS...");
 
@@ -330,7 +367,14 @@ export default function CheckoutPage() {
                 phoneNumber: cleanPhone,
                 paymentMethod,
                 note: note.trim() || undefined,
+                isBuyNow,
             });
+
+            try {
+                sessionStorage.removeItem("shopnova_buynow_item");
+            } catch {
+                // ignore
+            }
 
             // Đảm bảo thông tin địa chỉ nhận hàng luôn hiển thị chính xác theo dữ liệu đã nhập
             if (!createdOrder.delivery || !createdOrder.delivery.address) {
@@ -365,13 +409,70 @@ export default function CheckoutPage() {
     return (
         <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
-                <Link to="/cart" className="hover:underline">
-                    Giỏ hàng
-                </Link>
-                <span>/</span>
-                <span>Thanh toán</span>
+                {isBuyNow ? (
+                    <>
+                        <Link to="/products" className="hover:underline">
+                            Sản phẩm
+                        </Link>
+                        <span>/</span>
+                        <span className="text-slate-500">Mua ngay</span>
+                        <span>/</span>
+                        <span>Thanh toán</span>
+                    </>
+                ) : (
+                    <>
+                        <Link to="/cart" className="hover:underline">
+                            Giỏ hàng
+                        </Link>
+                        <span>/</span>
+                        <span>Thanh toán</span>
+                    </>
+                )}
             </div>
-            <h1 className="mt-2 text-3xl font-black text-slate-900">Hoàn tất đơn hàng</h1>
+            <h1 className="mt-2 text-3xl font-black text-slate-900">
+                {isBuyNow ? "Thanh toán Mua Ngay" : "Hoàn tất đơn hàng"}
+            </h1>
+
+            {/* Banner Chế độ Mua Ngay */}
+            {isBuyNow && buyNowItem && (
+                <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-amber-900 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                            <Zap size={20} />
+                        </span>
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                ⚡ Chế độ Mua Ngay (Chỉ thanh toán riêng sản phẩm này)
+                            </p>
+                            <p className="text-sm font-bold text-slate-900">
+                                {buyNowItem.name}{" "}
+                                <span className="text-xs font-semibold text-slate-500">
+                                    × {buyNowItem.quantity} sản phẩm
+                                </span>
+                            </p>
+                            <p className="text-[11px] text-amber-800/80">
+                                Bạn đang thanh toán trực tiếp cho sản phẩm này. Toàn bộ sản phẩm khác trong giỏ hàng vẫn được lưu giữ an toàn.
+                            </p>
+                        </div>
+                    </div>
+                    {cartItems.length > 0 && (
+                        <Link
+                            to="/cart"
+                            state={{ fromCart: true }}
+                            onClick={() => {
+                                try {
+                                    sessionStorage.removeItem("shopnova_buynow_item");
+                                } catch {
+                                    // ignore
+                                }
+                            }}
+                            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-xl border border-amber-300 bg-white px-3.5 py-1.5 text-xs font-bold text-amber-900 shadow-2xs transition hover:bg-amber-100/60 sm:self-center"
+                        >
+                            Quay lại giỏ hàng ({cartItems.length})
+                        </Link>
+                    )}
+                </div>
+            )}
 
             <form onSubmit={submitOrder} className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]">
                 <div className="space-y-6">

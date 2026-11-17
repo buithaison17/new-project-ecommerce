@@ -111,3 +111,95 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* CKEditor Custom Styling */
+.product-rich-editor .ck.ck-editor {
+  border-radius: 0;
+  border: none;
+  overflow: hidden;
+}
+.product-rich-editor .ck.ck-toolbar {
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 6px 10px;
+}
+.product-rich-editor .ck.ck-toolbar .ck-toolbar__items {
+  gap: 2px;
+}
+.product-rich-editor .ck.ck-button {
+  border-radius: 6px;
+  cursor: pointer;
+}
+.product-rich-editor .editor-normal .ck.ck-editor__main > .ck-editor__editable {
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 240px;
+  max-height: 380px;
+  padding: 16px 20px;
+  font-size: 0.925rem;
+  color: #1e293b;
+  line-height: 1.7;
+}
+.product-rich-editor .editor-expanded .ck.ck-editor__main > .ck-editor__editable {
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 500px;
+  max-height: 650px;
+  padding: 20px 24px;
+  font-size: 0.95rem;
+  color: #1e293b;
+  line-height: 1.75;
+}
+.product-rich-editor .ck.ck-editor__main > .ck-editor__editable:focus {
+  outline: none;
+}
+.product-rich-editor .ck-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  border-left: 4px solid #6366f1;
+  padding-left: 0.65rem;
+}
+.product-rich-editor .ck-content h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.product-rich-editor .ck-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.product-rich-editor .ck-content blockquote {
+  border-left: 4px solid #818cf8;
+  padding-left: 1rem;
+  color: #475569;
+  font-style: italic;
+  margin: 1rem 0;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.product-rich-editor .ck-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.product-rich-editor .ck-content th {
+  background: #f1f5f9;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+}
+.product-rich-editor .ck-content td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+}
+
