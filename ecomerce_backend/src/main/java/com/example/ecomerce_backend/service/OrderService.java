@@ -172,6 +172,7 @@ public class OrderService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         // Lấy địa chỉ nhận hàng
         UserDelivery userDelivery = userDeliveryRepository.findByIdAndUser(request.deliveryId(), user)
+                .filter(delivery -> !Boolean.TRUE.equals(delivery.getIsDeleted()))
                 .orElseThrow(() -> new ResourceNotFoundException("Địa chỉ nhận hàng không tồn tại"));
         PaymentMethod paymentMethod = PaymentMethod.valueOf(request.paymentMethod().toUpperCase());
         // Tạo order

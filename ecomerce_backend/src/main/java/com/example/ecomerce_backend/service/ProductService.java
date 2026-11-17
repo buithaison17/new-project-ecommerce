@@ -48,6 +48,7 @@ public class ProductService {
     private final CategoryService categoryService;
     private final FileStorageService fileStorageService;
     private final CatalogMapper mapper;
+    private final FlashSaleService flashSaleService;
 
     // ------------------------------------------------------------ Khách hàng (public)
 
@@ -92,8 +93,18 @@ public class ProductService {
                 : inventoryRepository.findByProductIdIn(ids).stream()
                 .collect(Collectors.toMap(i -> i.getProduct().getId(), Inventory::availableQuantity));
 
-        return PageResponse.from(result, product ->
-                mapper.toProductSummary(product, Math.max(stockByProduct.getOrDefault(product.getId(), 0), 0)));
+        // Tính flash sale price cho các sản phẩm
+        Map<Long, BigDecimal> flashSalePrices = ids.isEmpty() ? Map.of()
+                : flashSaleService.getEffectivePrices(result.getContent());
+
+        return PageResponse.from(result, product -> {
+            BigDecimal effective = flashSalePrices.get(product.getId());
+            BigDecimal salePrice = (effective != null && effective.compareTo(product.getPrice()) < 0)
+                    ? effective : null;
+            return mapper.toProductSummary(product,
+                    Math.max(stockByProduct.getOrDefault(product.getId(), 0), 0),
+                    salePrice);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -190,7 +201,10 @@ public class ProductService {
     private ProductResponse toDetail(Product product) {
         int stock = inventoryRepository.findByProductId(product.getId())
                 .map(Inventory::availableQuantity).orElse(0);
-        return mapper.toProductDetail(product, Math.max(stock, 0));
+        BigDecimal effective = flashSaleService.getEffectivePrice(product);
+        BigDecimal salePrice = (effective != null && effective.compareTo(product.getPrice()) < 0)
+                ? effective : null;
+        return mapper.toProductDetail(product, Math.max(stock, 0), salePrice);
     }
 
     private Specification<Product> buildSpecification(
