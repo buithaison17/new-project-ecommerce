@@ -269,6 +269,14 @@ function OrderSummary({
 
             <Link
                 to="/checkout"
+                state={{ fromCart: true }}
+                onClick={() => {
+                    try {
+                        sessionStorage.removeItem("shopnova_buynow_item");
+                    } catch {
+                        // ignore
+                    }
+                }}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 active:scale-[0.99]"
             >
                 Tiến hành đặt hàng <ArrowRight size={16} />

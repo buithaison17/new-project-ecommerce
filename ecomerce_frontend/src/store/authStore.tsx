@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { loginService } from "../service/loginService";
-import { cartService } from "../service/cartService";
+import { cartService, normalizeBackendCartItems } from "../service/cartService";
 import { useCartStore } from "./cartStore";
 import { userService } from "../service/userService";
 
@@ -85,21 +85,10 @@ export const useAuthStore = create<State>((set) => ({
                         quantity: item.quantity,
                     }));
                     const syncedCart = await cartService.sync(syncItems);
-                    // Cập nhật giỏ hàng LocalStorage từ dữ liệu Backend
-                    useCartStore.getState().clearCart();
-                    syncedCart.items.forEach((item) => {
-                        useCartStore.getState().addItem({
-                            id: item.productId,
-                            name: item.name,
-                            price: item.price,
-                            thumbnailUrl: item.thumbnailUrl,
-                            stockQuantity: item.stockQuantity,
-                        } as any);
-                        // Cập nhật số lượng chính xác
-                        useCartStore
-                            .getState()
-                            .updateQuantity(item.productId, item.quantity);
-                    });
+                    if (syncedCart?.items && Array.isArray(syncedCart.items)) {
+                        const normalized = normalizeBackendCartItems(syncedCart.items);
+                        useCartStore.getState().setItems(normalized);
+                    }
                 } catch (error) {
                     console.error("Lỗi đồng bộ giỏ hàng:", error);
                 }
@@ -107,19 +96,10 @@ export const useAuthStore = create<State>((set) => ({
                 // Nếu LocalStorage trống, lấy giỏ hàng từ Backend
                 try {
                     const backendCart = await cartService.getCart();
-                    useCartStore.getState().clearCart();
-                    backendCart.items.forEach((item) => {
-                        useCartStore.getState().addItem({
-                            id: item.productId,
-                            name: item.name,
-                            price: item.price,
-                            thumbnailUrl: item.thumbnailUrl,
-                            stockQuantity: item.stockQuantity,
-                        } as any);
-                        useCartStore
-                            .getState()
-                            .updateQuantity(item.productId, item.quantity);
-                    });
+                    if (backendCart?.items && Array.isArray(backendCart.items)) {
+                        const normalized = normalizeBackendCartItems(backendCart.items);
+                        useCartStore.getState().setItems(normalized);
+                    }
                 } catch (error) {
                     console.error("Lỗi lấy giỏ hàng từ Backend:", error);
                 }
@@ -165,6 +145,18 @@ export const useAuthStore = create<State>((set) => ({
                             email: user.email ?? prevObj.email,
                         }),
                     );
+                } catch {
+                    // ignore
+                }
+            }
+
+            if (user && useCartStore.getState().items.length === 0) {
+                try {
+                    const backendCart = await cartService.getCart();
+                    if (backendCart?.items && Array.isArray(backendCart.items) && backendCart.items.length > 0) {
+                        const normalized = normalizeBackendCartItems(backendCart.items);
+                        useCartStore.getState().setItems(normalized);
+                    }
                 } catch {
                     // ignore
                 }
