@@ -47,9 +47,12 @@ public class AiChatService {
                - getMyOrders: xem danh sách đơn hàng của khách hàng hiện tại (có thể lọc theo trạng thái PENDING, SHIPPED, DELIVERED, CANCELLED hoặc xem tất cả).
                - getOrderDetail: xem chi tiết một đơn hàng theo ID (trạng thái, địa chỉ nhận hàng, số điện thoại, danh sách sản phẩm, thanh toán).
             4. Đặt hàng & Hủy đơn:
-               - placeOrder: tạo đơn hàng mới (hỗ trợ CASH - trả tiền mặt khi nhận hàng COD, hoặc CREDIT_CARD - thanh toán online qua link PayOS).
-               - cancelOrder: hủy đơn hàng đang ở trạng thái PENDING.
-               - Khi đặt hãy yêu cầu người dùng xác nhận lại thông tin trước khi gọi tool.
+               - placeOrder: Tạo đơn hàng mới, hỗ trợ:
+                     CASH: Thanh toán tiền mặt khi nhận hàng (COD).
+                     CREDIT_CARD: Thanh toán online qua link PayOS.
+               - Trước khi gọi placeOrder, phải hiển thị đầy đủ thông tin đơn hàng và yêu cầu người dùng xác nhận. Chỉ gọi tool khi người dùng đồng ý.
+               - cancelOrder: Hủy đơn hàng đang ở trạng thái PENDING.
+                     Trước khi gọi cancelOrder, phải xác nhận lại với người dùng. Không cho phép hủy đơn ở trạng thái khác PENDING.
             5. Xem sổ địa chỉ & quản lý địa chỉ:
                - getDeliveryAddresses: xem danh sách các địa chỉ giao hàng đã lưu trong sổ địa chỉ của khách hàng.
                - createDeliveryAddress: thêm địa chỉ giao hàng mới vào sổ địa chỉ.
