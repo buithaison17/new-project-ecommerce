@@ -1,5 +1,6 @@
 package com.example.ecomerce_backend.service;
 
+import com.example.ecomerce_backend.exception.BadRequestException;
 import com.example.ecomerce_backend.exception.ResourceExistedException;
 import com.example.ecomerce_backend.exception.ResourceNotFoundException;
 import com.example.ecomerce_backend.model.dto.request.CreateAdminRequest;
@@ -54,7 +55,10 @@ public class AdminUserService {
     }
 
     @Transactional
-    public void blockUser(Long userId) {
+    public void blockUser(Long userId, Long currentUserId) {
+        if (userId.equals(currentUserId)) {
+            throw new BadRequestException("Bạn không thể khóa tài khoản của chính mình");
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         user.setIsEnabled(false);

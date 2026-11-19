@@ -177,10 +177,10 @@ class AiToolsTest {
     void getProducts_includesFlashSalePriceWhenOnSale() {
         BigDecimal originalPrice = BigDecimal.valueOf(200000);
         BigDecimal flashSalePrice = BigDecimal.valueOf(150000);
+        ProductSummaryResponse saleItem = new ProductSummaryResponse(1L, "Áo Thun Nam", originalPrice, 1L, "Thời trang",
+                "thumb.jpg", 20, true, flashSalePrice);
         PageResponse<ProductSummaryResponse> expected = new PageResponse<>(
-                List.of(new ProductSummaryResponse(1L, "Áo Thun Nam", originalPrice, 1L, "Thời trang",
-                        "thumb.jpg", 20, true, flashSalePrice)),
-                0, 12, 1L, 1);
+                List.of(saleItem), 0, 12, 1L, 1);
         when(productService.search(any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
                 .thenReturn(expected);
 
@@ -188,12 +188,38 @@ class AiToolsTest {
         assertNotNull(result);
         assertEquals(1, result.content().size());
         ProductSummaryResponse item = result.content().get(0);
+
+        // Kiểm tra chắc chắn hiển thị được cả giá gốc và giá flash sale
         assertEquals(originalPrice, item.price());
+        assertEquals(originalPrice, item.getOriginalPrice());
         assertEquals(flashSalePrice, item.flashSalePrice());
+        assertTrue(item.getHasFlashSale());
+        assertTrue(item.getPriceDisplay().contains("Giá gốc"));
+        assertTrue(item.getPriceDisplay().contains("Giá Flash Sale"));
     }
 
     @Test
-    @DisplayName("getProductById: thành công khi tìm thấy sản phẩm")
+    @DisplayName("getProducts: sản phẩm không sale thì hasFlashSale=false và chỉ hiển thị giá thường")
+    void getProducts_withoutFlashSale() {
+        BigDecimal originalPrice = BigDecimal.valueOf(200000);
+        ProductSummaryResponse normalItem = new ProductSummaryResponse(2L, "Quần Jean", originalPrice, 1L, "Thời trang",
+                "thumb.jpg", 10, true, null);
+        PageResponse<ProductSummaryResponse> expected = new PageResponse<>(
+                List.of(normalItem), 0, 12, 1L, 1);
+        when(productService.search(any(), any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(expected);
+
+        PageResponse<ProductSummaryResponse> result = productTools.getProducts("quần jean", null, null, null, null, null, null, null);
+        assertNotNull(result);
+        ProductSummaryResponse item = result.content().get(0);
+        assertEquals(originalPrice, item.price());
+        assertNull(item.flashSalePrice());
+        assertFalse(item.getHasFlashSale());
+        assertFalse(item.getPriceDisplay().contains("Flash Sale"));
+    }
+
+    @Test
+    @DisplayName("getProductById: thành công khi tìm thấy sản phẩm có cả giá gốc và flash sale")
     void getProductById_found() {
         ProductResponse response = new ProductResponse(1L, "Sách Tâm Lý", "Mô tả", BigDecimal.valueOf(100000),
                 null, "thumb.jpg", List.of(), 5, true, LocalDateTime.now(), LocalDateTime.now(), BigDecimal.valueOf(80000));
@@ -204,7 +230,11 @@ class AiToolsTest {
         ProductResponse res = (ProductResponse) result;
         assertEquals("Sách Tâm Lý", res.name());
         assertEquals(BigDecimal.valueOf(100000), res.price());
+        assertEquals(BigDecimal.valueOf(100000), res.getOriginalPrice());
         assertEquals(BigDecimal.valueOf(80000), res.flashSalePrice());
+        assertTrue(res.getHasFlashSale());
+        assertTrue(res.getPriceDisplay().contains("Giá gốc"));
+        assertTrue(res.getPriceDisplay().contains("Giá Flash Sale"));
     }
 
     @Test
