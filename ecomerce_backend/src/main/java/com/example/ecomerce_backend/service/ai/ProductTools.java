@@ -31,10 +31,8 @@ public class ProductTools {
     private final ProductService productService;
 
     @Tool(description = "Xem danh sách sản phẩm của cửa hàng hoặc tìm kiếm sản phẩm theo điều kiện. "
-            + "Trả về danh sách sản phẩm kèm id, tên, giá gốc (price), giá flash sale nếu đang giảm giá (flashSalePrice), tồn kho, danh mục. "
-            + "Nếu sản phẩm có flashSalePrice (khác null và nhỏ hơn price), sản phẩm đó đang được giảm giá trong chương trình Flash Sale: hãy hiển thị cho khách hàng cả giá gốc và giá khuyến mãi (Flash Sale). "
-            + "Dùng khi khách hàng muốn xem danh sách sản phẩm, hỏi cửa hàng bán những mặt hàng gì, "
-            + "hoặc tìm kiếm sản phẩm theo tên, danh mục, khoảng giá. "
+            + "Trả về danh sách sản phẩm kèm id, tên, giá gốc (price / originalPrice), giá Flash Sale (flashSalePrice), hasFlashSale (true nếu đang giảm giá), và priceDisplay. "
+            + "QUAN TRỌNG: Nếu hasFlashSale = true (sản phẩm đang có Flash Sale), bạn BẮT BUỘC phải hiển thị CẢ 2 MỨC GIÁ: Giá gốc và Giá Flash Sale ưu đãi (hoặc dùng chuỗi priceDisplay) cho khách hàng. "
             + "Để xem tất cả sản phẩm, để trống keyword. "
             + "Keyword không cần dấu tiếng Việt.")
     public PageResponse<ProductSummaryResponse> getProducts(
@@ -104,8 +102,8 @@ public class ProductTools {
     }
 
     @Tool(description = "Tìm kiếm sản phẩm theo từ khóa trong tên sản phẩm hoặc lấy danh sách tất cả sản phẩm. "
-            + "Trả về danh sách sản phẩm kèm giá gốc (price), giá flash sale nếu đang giảm giá (flashSalePrice), tồn kho, danh mục. "
-            + "Nếu sản phẩm có flashSalePrice, hãy luôn hiển thị cả giá gốc và giá khuyến mãi Flash Sale cho khách hàng. "
+            + "Trả về danh sách sản phẩm kèm id, tên, giá gốc (price / originalPrice), giá Flash Sale (flashSalePrice), hasFlashSale, và priceDisplay. "
+            + "QUAN TRỌNG: Nếu hasFlashSale = true (sản phẩm đang có Flash Sale), bạn BẮT BUỘC phải hiển thị CẢ 2 MỨC GIÁ: Giá gốc và Giá Flash Sale cho khách hàng. "
             + "Dùng khi khách hàng hỏi về sản phẩm cụ thể hoặc tìm kiếm theo từ khóa.")
     public PageResponse<ProductSummaryResponse> searchProducts(
             @ToolParam(description = "Từ khóa tìm kiếm trong tên sản phẩm (để trống nếu muốn lấy tất cả). Không cần dấu tiếng Việt.") String keyword,
@@ -121,8 +119,8 @@ public class ProductTools {
     }
 
     @Tool(description = "Lấy chi tiết sản phẩm theo ID. "
-            + "Trả về thông tin đầy đủ: tên, mô tả, giá gốc (price), giá flash sale nếu đang giảm giá (flashSalePrice), danh mục, ảnh, tồn kho, thời gian tạo/cập nhật. "
-            + "Nếu sản phẩm có flashSalePrice, hãy báo cho khách hàng cả giá gốc và giá khuyến mãi Flash Sale. "
+            + "Trả về thông tin đầy đủ: tên, mô tả, giá gốc (price / originalPrice), giá Flash Sale nếu đang giảm giá (flashSalePrice), hasFlashSale, priceDisplay, danh mục, ảnh, tồn kho, thời gian tạo/cập nhật. "
+            + "QUAN TRỌNG: Nếu hasFlashSale = true (hoặc có flashSalePrice), bạn BẮT BUỘC phải thông báo cho khách hàng CẢ 2 MỨC GIÁ: Giá gốc và Giá Flash Sale ưu đãi. "
             + "Dùng khi khách hàng muốn xem chi tiết một sản phẩm cụ thể theo ID.")
     public Object getProductById(
             @ToolParam(description = "ID của sản phẩm cần xem chi tiết (số nguyên dương)") Long productId

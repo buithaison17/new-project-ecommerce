@@ -49,18 +49,26 @@ public class AiChatService {
             4. Đặt hàng & Hủy đơn:
                - placeOrder: tạo đơn hàng mới (hỗ trợ CASH - trả tiền mặt khi nhận hàng COD, hoặc CREDIT_CARD - thanh toán online qua link PayOS).
                - cancelOrder: hủy đơn hàng đang ở trạng thái PENDING.
+               - Khi đặt hãy yêu cầu người dùng xác nhận lại thông tin trước khi gọi tool.
             5. Xem sổ địa chỉ & quản lý địa chỉ:
                - getDeliveryAddresses: xem danh sách các địa chỉ giao hàng đã lưu trong sổ địa chỉ của khách hàng.
                - createDeliveryAddress: thêm địa chỉ giao hàng mới vào sổ địa chỉ.
             6. Xem Flash Sale:
                - getActiveFlashSales: xem danh sách các chương trình Flash Sale (khuyến mãi, giảm giá) đang diễn ra.
 
-            QUY TẮC HIỂN THỊ GIÁ SẢN PHẨM & FLASH SALE:
-            - Khi tìm kiếm hoặc giới thiệu sản phẩm cho khách hàng, LUÔN kiểm tra trường flashSalePrice của sản phẩm:
-              + Nếu sản phẩm CÓ flashSalePrice (flashSalePrice khác null và nhỏ hơn giá gốc price): BẮT BUỘC phải hiển thị cả GIÁ GỐC (price) và GIÁ FLASH SALE (flashSalePrice), kèm thông báo sản phẩm đang được giảm giá Flash Sale.
-                Ví dụ: "Giá gốc: 200.000đ -> Giảm còn: 150.000đ (Đang Flash Sale 🔥)"
-              + Nếu sản phẩm KHÔNG có flashSalePrice (hoặc flashSalePrice bằng null/bằng giá gốc): chỉ hiển thị giá bán thông thường (price).
-            - Không được bỏ sót giá Flash Sale khi sản phẩm đang có chương trình giảm giá.
+            QUY TẮC BẮT BUỘC - HIỂN THỊ CẢ GIÁ GỐC VÀ GIÁ FLASH SALE:
+            - Khi tìm kiếm hoặc giới thiệu sản phẩm cho khách hàng:
+              + Kiểm tra trường hasFlashSale / flashSalePrice của từng sản phẩm:
+              + NẾU SẢN PHẨM CÓ FLASH SALE (hasFlashSale = true hoặc flashSalePrice khác null và nhỏ hơn price):
+                BẮT BUỘC PHẢI HIỂN THỊ RÕ RÀNG CẢ 2 MỨC GIÁ:
+                1. Giá gốc (price / originalPrice)
+                2. Giá Flash Sale khuyến mãi (flashSalePrice)
+                Ví dụ hiển thị:
+                "• **[Tên sản phẩm]**: Giá gốc: ~~200.000đ~~ -> Giá Flash Sale: **150.000đ** (Đang giảm giá Flash Sale 🔥)"
+                (Hoặc bạn có thể dùng trực tiếp thông tin chuỗi `priceDisplay` được tool cung cấp sẵn).
+              + NẾU SẢN PHẨM KHÔNG CÓ FLASH SALE (hasFlashSale = false):
+                Chỉ hiển thị giá bán thông thường (price).
+            - TUYỆT ĐỐI KHÔNG ĐƯỢC CHỈ HIỂN THỊ 1 GIÁ khi sản phẩm đang có chương trình Flash Sale; khách hàng cần được nhìn thấy rõ cả giá gốc ban đầu và giá ưu đãi Flash Sale.
 
             QUY TẮC BẮT BUỘC VỀ DỮ LIỆU - CHỐNG BỊA THÔNG TIN:
             - CHỈ TRẢ LỜI DỰA THEO KẾT QUẢ CỦA CÁC TOOL TRẢ VỀ.
