@@ -4,10 +4,12 @@ import com.example.ecomerce_backend.model.dto.request.CreateAdminRequest;
 import com.example.ecomerce_backend.model.dto.response.AdminUserResponse;
 import com.example.ecomerce_backend.model.dto.response.ApiDataResponse;
 import com.example.ecomerce_backend.model.dto.response.PageResponse;
+import com.example.ecomerce_backend.security.principal.UserPrincipal;
 import com.example.ecomerce_backend.service.AdminUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -38,8 +40,11 @@ public class AdminUserController {
     }
 
     @PatchMapping("/{id}/block")
-    public ResponseEntity<ApiDataResponse<Void>> blockUser(@PathVariable Long id) {
-        adminUserService.blockUser(id);
+    public ResponseEntity<ApiDataResponse<Void>> blockUser(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        adminUserService.blockUser(id, userPrincipal.getUser().getId());
         return ResponseEntity.ok(ApiDataResponse.ok("Khóa tài khoản thành công", null));
     }
 
