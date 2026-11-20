@@ -1,5 +1,5 @@
 import { api } from "../lib/axios";
-import type { AdminOrder, AdminUserResponse, ApiDataResponse, DashboardSummaryResponse, InventoryItem, PageResponse } from "../types/admin";
+import type { AdminOrder, AdminUserResponse, ApiDataResponse, CreateUserRequest, DashboardSummaryResponse, InventoryItem, PageResponse } from "../types/admin";
 import type { Category, ProductSummary } from "../types/catalog";
 import type { FlashSaleRequest, FlashSaleResponse } from "../types/flashSale";
 import type { OrderItemResponse, OrderStatus } from "../types/order";
@@ -273,6 +273,11 @@ export const adminService = {
         const response = await api.get<ApiDataResponse<PageResponse<AdminUserResponse>>>("/admin/users", {
             params: { keyword, role, page, size },
         });
+        return response.data.data;
+    },
+
+    async createUser(data: CreateUserRequest): Promise<AdminUserResponse> {
+        const response = await api.post<ApiDataResponse<AdminUserResponse>>("/admin/users", data);
         return response.data.data;
     },
 
