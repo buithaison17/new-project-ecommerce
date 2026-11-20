@@ -43,6 +43,9 @@ services:
             PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID}
             PAYOS_API_KEY: ${PAYOS_API_KEY}
             PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY}
+            AI_API_KEY: ${AI_API_KEY}
+            AI_CHAT_MODEL: ${AI_CHAT_MODEL}
+            AI_BASE_URL: ${AI_BASE_URL}
         depends_on:
             mysql:
                 condition: service_healthy
