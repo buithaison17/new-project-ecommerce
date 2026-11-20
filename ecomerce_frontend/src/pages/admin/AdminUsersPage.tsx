@@ -3,12 +3,18 @@ import {
     Ban,
     ChevronLeft,
     ChevronRight,
+    Eye,
+    EyeOff,
+    KeyRound,
     Loader2,
+    Mail,
     RefreshCw,
     Search,
     ShieldCheck,
     ShieldX,
+    User,
     UserCog,
+    UserPlus,
     X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,6 +36,21 @@ export default function AdminUsersPage() {
     // Modals for confirmation
     const [userToBlock, setUserToBlock] = useState<AdminUserResponse | null>(null);
     const [userToUnblock, setUserToUnblock] = useState<AdminUserResponse | null>(null);
+
+    // Add user modal state
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newUsername, setNewUsername] = useState("");
+    const [newEmail, setNewEmail] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [newRole, setNewRole] = useState<"ADMIN" | "CUSTOMER">("ADMIN");
+    const [showPassword, setShowPassword] = useState(false);
+    const [creatingUser, setCreatingUser] = useState(false);
+    const [formErrors, setFormErrors] = useState<{
+        username?: string;
+        email?: string;
+        password?: string;
+        role?: string;
+    }>({});
 
     const loadUsers = (showToast = false) => {
         setLoading(true);
@@ -99,6 +120,79 @@ export default function AdminUsersPage() {
         }
     };
 
+    const openAddModal = () => {
+        setNewUsername("");
+        setNewEmail("");
+        setNewPassword("");
+        setNewRole("ADMIN");
+        setShowPassword(false);
+        setFormErrors({});
+        setShowAddModal(true);
+    };
+
+    const closeAddModal = () => {
+        if (creatingUser) return;
+        setShowAddModal(false);
+    };
+
+    const validateForm = () => {
+        const errors: { username?: string; email?: string; password?: string; role?: string } = {};
+
+        const trimmedUsername = newUsername.trim();
+        if (!trimmedUsername) {
+            errors.username = "Username không được để trống";
+        } else if (trimmedUsername.length < 3) {
+            errors.username = "Username phải có tối thiểu 3 ký tự";
+        }
+
+        const trimmedEmail = newEmail.trim();
+        if (!trimmedEmail) {
+            errors.email = "Email không được để trống";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            errors.email = "Email không đúng định dạng";
+        }
+
+        if (!newPassword) {
+            errors.password = "Mật khẩu không được để trống";
+        } else if (newPassword.length < 6) {
+            errors.password = "Mật khẩu phải có tối thiểu 6 ký tự";
+        }
+
+        if (!newRole) {
+            errors.role = "Vui lòng chọn vai trò";
+        }
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleCreateUser = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!validateForm()) return;
+
+        try {
+            setCreatingUser(true);
+            await adminService.createUser({
+                username: newUsername.trim(),
+                email: newEmail.trim(),
+                password: newPassword,
+                role: newRole,
+            });
+            toast.success(`Tạo tài khoản "${newUsername.trim()}" thành công!`);
+            setShowAddModal(false);
+            loadUsers();
+        } catch (err: any) {
+            const apiMessage = err?.response?.data?.message;
+            const apiErrors = err?.response?.data?.errors;
+            if (apiErrors && typeof apiErrors === "object") {
+                setFormErrors((prev) => ({ ...prev, ...apiErrors }));
+            }
+            toast.error(apiMessage || "Không thể tạo tài khoản người dùng");
+        } finally {
+            setCreatingUser(false);
+        }
+    };
+
     const formatDate = (dateString: string) => {
         if (!dateString) return "-";
         const date = new Date(dateString);
@@ -123,18 +217,28 @@ export default function AdminUsersPage() {
                         Quản lý người dùng
                     </h1>
                     <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-                        Xem danh sách người dùng, khóa/mở khóa tài khoản và quản lý quyền truy cập.
+                        Xem danh sách người dùng, thêm tài khoản mới, khóa/mở khóa tài khoản và quản lý quyền truy cập.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => loadUsers(true)}
-                    disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
-                >
-                    <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
-                    <span>{loading ? "Đang tải lại..." : "Làm mới"}</span>
-                </button>
+                <div className="flex items-center gap-2.5">
+                    <button
+                        type="button"
+                        onClick={() => loadUsers(true)}
+                        disabled={loading}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                    >
+                        <RefreshCw size={14} className={`text-indigo-600 ${loading ? "animate-spin" : ""}`} />
+                        <span>{loading ? "Đang tải lại..." : "Làm mới"}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={openAddModal}
+                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 cursor-pointer"
+                    >
+                        <UserPlus size={16} />
+                        <span>Thêm người dùng</span>
+                    </button>
+                </div>
             </section>
 
             {/* Filters */}
@@ -181,8 +285,8 @@ export default function AdminUsersPage() {
                             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium outline-none transition focus:border-indigo-500 focus:bg-white cursor-pointer"
                         >
                             <option value="all">Tất cả vai trò</option>
-                            <option value="ADMIN">Quản trị viên</option>
-                            <option value="USER">Người dùng</option>
+                            <option value="ADMIN">Quản trị viên (ADMIN)</option>
+                            <option value="CUSTOMER">Khách hàng (CUSTOMER)</option>
                         </select>
                     </div>
                 </div>
@@ -235,10 +339,10 @@ export default function AdminUsersPage() {
                                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                                                 user.role === "ADMIN"
                                                     ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                                                    : "bg-blue-50 text-blue-700 border border-blue-200"
                                             }`}
                                         >
-                                            {user.role === "ADMIN" ? "Quản trị viên" : "Người dùng"}
+                                            {user.role === "ADMIN" ? "Quản trị viên" : "Khách hàng"}
                                         </span>
                                 </td>
                                 <td className="px-5 py-4">
@@ -407,10 +511,10 @@ export default function AdminUsersPage() {
                                     className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                         userToBlock.role === "ADMIN"
                                             ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                            : "bg-slate-100 text-slate-700 border border-slate-200"
+                                            : "bg-blue-50 text-blue-700 border border-blue-200"
                                     }`}
                                 >
-                                    {userToBlock.role === "ADMIN" ? "Quản trị viên" : "Người dùng"}
+                                    {userToBlock.role === "ADMIN" ? "Quản trị viên" : "Khách hàng"}
                                 </span>
                             </div>
                         </div>
@@ -516,10 +620,10 @@ export default function AdminUsersPage() {
                                     className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
                                         userToUnblock.role === "ADMIN"
                                             ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                            : "bg-slate-100 text-slate-700 border border-slate-200"
+                                            : "bg-blue-50 text-blue-700 border border-blue-200"
                                     }`}
                                 >
-                                    {userToUnblock.role === "ADMIN" ? "Quản trị viên" : "Người dùng"}
+                                    {userToUnblock.role === "ADMIN" ? "Quản trị viên" : "Khách hàng"}
                                 </span>
                             </div>
                         </div>
@@ -560,6 +664,233 @@ export default function AdminUsersPage() {
                                 )}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal Thêm người dùng mới */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+                    <div
+                        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150"
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        {/* Header */}
+                        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                    <UserPlus size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-900">
+                                        Thêm người dùng mới
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Tạo tài khoản Quản trị viên hoặc Khách hàng trên hệ thống
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeAddModal}
+                                disabled={creatingUser}
+                                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer disabled:opacity-50"
+                                title="Đóng"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Form */}
+                        <form onSubmit={handleCreateUser} className="mt-5 space-y-4">
+                            {/* Username */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                    Tên đăng nhập (Username) <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                    <input
+                                        type="text"
+                                        value={newUsername}
+                                        onChange={(e) => {
+                                            setNewUsername(e.target.value);
+                                            if (formErrors.username) {
+                                                setFormErrors((prev) => ({ ...prev, username: undefined }));
+                                            }
+                                        }}
+                                        placeholder="Ví dụ: admin_staff, nguyen_van_a..."
+                                        className={`w-full rounded-xl border bg-slate-50/50 pl-10 pr-3.5 py-2.5 text-xs font-medium outline-none transition focus:bg-white ${
+                                            formErrors.username
+                                                ? "border-rose-400 focus:border-rose-500 bg-rose-50/30"
+                                                : "border-slate-200 focus:border-indigo-500"
+                                        }`}
+                                    />
+                                </div>
+                                {formErrors.username && (
+                                    <p className="mt-1 text-xs text-rose-600 font-semibold">{formErrors.username}</p>
+                                )}
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                    Địa chỉ Email <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                    <input
+                                        type="email"
+                                        value={newEmail}
+                                        onChange={(e) => {
+                                            setNewEmail(e.target.value);
+                                            if (formErrors.email) {
+                                                setFormErrors((prev) => ({ ...prev, email: undefined }));
+                                            }
+                                        }}
+                                        placeholder="Ví dụ: staff@shopnova.vn..."
+                                        className={`w-full rounded-xl border bg-slate-50/50 pl-10 pr-3.5 py-2.5 text-xs font-medium outline-none transition focus:bg-white ${
+                                            formErrors.email
+                                                ? "border-rose-400 focus:border-rose-500 bg-rose-50/30"
+                                                : "border-slate-200 focus:border-indigo-500"
+                                        }`}
+                                    />
+                                </div>
+                                {formErrors.email && (
+                                    <p className="mt-1 text-xs text-rose-600 font-semibold">{formErrors.email}</p>
+                                )}
+                            </div>
+
+                            {/* Password */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                    Mật khẩu khởi tạo <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        value={newPassword}
+                                        onChange={(e) => {
+                                            setNewPassword(e.target.value);
+                                            if (formErrors.password) {
+                                                setFormErrors((prev) => ({ ...prev, password: undefined }));
+                                            }
+                                        }}
+                                        placeholder="Tối thiểu 6 ký tự..."
+                                        className={`w-full rounded-xl border bg-slate-50/50 pl-10 pr-10 py-2.5 text-xs font-medium outline-none transition focus:bg-white ${
+                                            formErrors.password
+                                                ? "border-rose-400 focus:border-rose-500 bg-rose-50/30"
+                                                : "border-slate-200 focus:border-indigo-500"
+                                        }`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                                        title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                                {formErrors.password ? (
+                                    <p className="mt-1 text-xs text-rose-600 font-semibold">{formErrors.password}</p>
+                                ) : (
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                        Mật khẩu phải có độ dài từ 6 ký tự trở lên.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Role Selection */}
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                    Vai trò (Role) <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div
+                                        onClick={() => setNewRole("ADMIN")}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                                            newRole === "ADMIN"
+                                                ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20"
+                                                : "border-slate-200 bg-slate-50/40 hover:border-slate-300"
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="role"
+                                            checked={newRole === "ADMIN"}
+                                            onChange={() => setNewRole("ADMIN")}
+                                            className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                        <div>
+                                            <p className="text-xs font-black text-slate-900">Quản trị viên</p>
+                                            <span className="inline-block mt-0.5 rounded bg-purple-100 text-purple-700 px-1.5 py-0.2 text-[10px] font-bold">
+                                                ADMIN
+                                            </span>
+                                            <p className="text-[11px] text-slate-500 leading-tight mt-1">
+                                                Toàn quyền quản trị hệ thống, danh mục, sản phẩm, đơn hàng.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => setNewRole("CUSTOMER")}
+                                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                                            newRole === "CUSTOMER"
+                                                ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20"
+                                                : "border-slate-200 bg-slate-50/40 hover:border-slate-300"
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="role"
+                                            checked={newRole === "CUSTOMER"}
+                                            onChange={() => setNewRole("CUSTOMER")}
+                                            className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                        <div>
+                                            <p className="text-xs font-black text-slate-900">Khách hàng</p>
+                                            <span className="inline-block mt-0.5 rounded bg-blue-100 text-blue-700 px-1.5 py-0.2 text-[10px] font-bold">
+                                                CUSTOMER
+                                            </span>
+                                            <p className="text-[11px] text-slate-500 leading-tight mt-1">
+                                                Tài khoản người dùng thông thường để mua sắm và tạo đơn hàng.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={closeAddModal}
+                                    disabled={creatingUser}
+                                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={creatingUser}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200 hover:bg-indigo-700 transition cursor-pointer disabled:opacity-60"
+                                >
+                                    {creatingUser ? (
+                                        <>
+                                            <Loader2 size={14} className="animate-spin" />
+                                            Đang tạo...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserPlus size={14} />
+                                            Tạo người dùng
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

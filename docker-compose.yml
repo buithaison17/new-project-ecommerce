@@ -54,13 +54,11 @@ services:
         container_name: frontend
         restart: unless-stopped
         ports:
-            - "80:80"
+            - "3000:80"
         depends_on:
             - backend
         networks:
             - ecommerce-network
-        environment:
-            VITE_API_BASE_URL: ${VITE_API_BASE_URL}
 
 volumes:
     mysql_data:
